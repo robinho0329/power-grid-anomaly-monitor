@@ -12,8 +12,8 @@ def test_upsert_is_idempotent():
     eng = _engine()
     recs = [
         {"ts": datetime(2026, 6, 29, 0, 0), "current_load": 60000.0,
-         "supply_capacity": 90000.0, "reserve_power": 30000.0,
-         "reserve_rate": 50.0, "temperature": 20.0},
+         "supply_capacity": 90000.0, "forecast_load": 76000.0, "reserve_power": 30000.0,
+         "reserve_rate": 50.0, "oper_reserve_power": 9000.0, "oper_reserve_rate": 15.0},
     ]
     assert upsert_records(recs, eng) == 1
     assert upsert_records(recs, eng) == 0  # 같은 ts 재삽입 안 됨

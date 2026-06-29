@@ -20,7 +20,9 @@ def detect(
     score는 낮을수록 이상(IsolationForest.decision_function 기준).
     """
     feature_cols = feature_cols or [
-        c for c in ("current_load", "reserve_rate", "temperature") if c in df.columns
+        c
+        for c in ("current_load", "reserve_rate", "oper_reserve_rate", "forecast_load")
+        if c in df.columns
     ]
     work = df.dropna(subset=feature_cols)
     if work.empty:

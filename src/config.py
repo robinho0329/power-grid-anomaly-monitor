@@ -13,20 +13,21 @@ load_dotenv(BASE_DIR / ".env")
 # KPX OpenAPI (공공데이터포털)
 KPX_API_KEY = os.getenv("KPX_API_KEY", "")
 KPX_SUKUB_URL = "https://openapi.kpx.or.kr/openapi/sukub5mToday/getSukub5mToday"
-KPX_GEN_URL = "https://openapi.kpx.or.kr/openapi/powerSourcesGeneration5m/getPowerSourcesGeneration5m"
+KPX_GEN_URL = "https://openapi.kpx.or.kr/openapi/sumperfuel5m/getSumperfuel5m"
 
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY", "")
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DB_PATH}")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
-# 모니터링 지표 (제조 메타포 매핑)
+# 모니터링 지표 (제조 메타포 매핑) — KPX sukub5mToday 실제 필드 기준
 METRICS = {
-    "current_load": "현재수요(부하, MW)",      # 생산라인 처리량
+    "current_load": "현재수요(부하, MW)",       # 생산라인 처리량
+    "forecast_load": "최대예측수요(MW)",        # 당일 목표 부하(라인 캐파)
     "supply_capacity": "공급능력(MW)",
     "reserve_power": "공급예비력(MW)",
     "reserve_rate": "공급예비율(%)",            # 안전재고/여유율
-    "temperature": "기온(℃)",                  # 환경 변수
+    "oper_reserve_rate": "운영예비율(%)",
 }
 
 # 경보 임계 (예비율 낮을수록 위험 — 전력경보 단계 참고)

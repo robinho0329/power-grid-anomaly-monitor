@@ -1,11 +1,14 @@
-"""KPX(한국전력거래소) 전력수급 수집기.
+"""KPX(한국전력거래소) 전력수급/발전믹스 수집기.
 
-오늘전력수급현황 API를 5분 주기로 호출해 레코드로 파싱한다.
-파싱 로직(parse_sukub)은 순수 함수로 분리해 테스트 가능하게 한다.
+실제 KPX OpenAPI는 XML(application/xml)을 반환한다.
+파싱 로직(parse_sukub/parse_generation)은 XML 문자열을 받는 순수 함수로 분리해
+네트워크 없이 테스트 가능하게 한다.
 """
 from __future__ import annotations
 
 import logging
+import time
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import Any
 
@@ -16,120 +19,117 @@ from src import config
 logger = logging.getLogger(__name__)
 
 
-def parse_sukub(payload: dict[str, Any]) -> list[dict]:
-    """KPX 수급 API 응답(JSON dict)을 표준 레코드 리스트로 변환.
+# ── 수급(sukub5mToday) 실제 태그 매핑 ───────────────────────────────
+# baseDatetime, suppAbility(공급능력), currPwrTot(현재수요),
+# forecastLoad(최대예측수요), suppReservePwr(공급예비력),
+# suppReserveRate(공급예비율), operReservePwr(운영예비력), operReserveRate(운영예비율)
+_SUKUB_MAP = {
+    "suppAbility": "supply_capacity",
+    "currPwrTot": "current_load",
+    "forecastLoad": "forecast_load",
+    "suppReservePwr": "reserve_power",
+    "suppReserveRate": "reserve_rate",
+    "operReservePwr": "oper_reserve_power",
+    "operReserveRate": "oper_reserve_rate",
+}
 
-    응답 형식 변동에 대비해 키를 방어적으로 매핑한다.
-    기대 필드: baseDatetime, supplyCapacity, currentLoad, supplyReserve,
-              supplyReserveRate, temperature
-    """
-    items = (
-        payload.get("response", {})
-        .get("body", {})
-        .get("items", {})
-        .get("item", [])
-    )
-    if isinstance(items, dict):  # 단일 건이면 dict로 올 수 있음
-        items = [items]
+# ── 발전믹스(sumperfuel5m) fuelPwr1~9 → 표준 발전원 ──────────────────
+_FUEL_MAP = {
+    "fuelPwr1": "수력", "fuelPwr2": "유류", "fuelPwr3": "석탄",  # 유연탄
+    "fuelPwr4": "원자력", "fuelPwr5": "양수", "fuelPwr6": "LNG",  # 가스
+    "fuelPwr7": "석탄",  # 국내탄
+    "fuelPwr8": "신재생", "fuelPwr9": "신재생",  # 신재생/태양광
+}
 
+
+def _items(xml_text: str) -> list[dict[str, str]]:
+    """XML 문자열에서 <item> 요소들을 {tag: text} dict 리스트로 추출."""
+    root = ET.fromstring(xml_text)
+    out: list[dict[str, str]] = []
+    for item in root.iter("item"):
+        out.append({child.tag: (child.text or "").strip() for child in item})
+    return out
+
+
+def parse_sukub(xml_text: str) -> list[dict]:
+    """수급 XML → 표준 레코드 리스트."""
     records: list[dict] = []
-    for it in items:
-        ts_raw = it.get("baseDatetime") or it.get("기준일시")
-        records.append(
-            {
-                "ts": _parse_ts(ts_raw),
-                "supply_capacity": _to_float(it.get("supplyCapacity") or it.get("공급능력")),
-                "current_load": _to_float(it.get("currentLoad") or it.get("현재수요")),
-                "reserve_power": _to_float(it.get("supplyReserve") or it.get("공급예비력")),
-                "reserve_rate": _to_float(it.get("supplyReserveRate") or it.get("공급예비율")),
-                "temperature": _to_float(it.get("temperature") or it.get("기온")),
-            }
-        )
-    return [r for r in records if r["ts"] is not None]
+    for it in _items(xml_text):
+        ts = _parse_ts(it.get("baseDatetime"))
+        if ts is None:
+            continue
+        rec = {"ts": ts}
+        for src_tag, col in _SUKUB_MAP.items():
+            rec[col] = _to_float(it.get(src_tag))
+        records.append(rec)
+    return records
+
+
+def parse_generation(xml_text: str) -> list[dict]:
+    """발전믹스 XML → long 레코드 [{ts, source, generation_mw}].
+
+    fuelPwr1~9를 표준 발전원으로 매핑하고, 같은 발전원(유연탄+국내탄=석탄,
+    신재생+태양광=신재생)은 합산한다. fuelPwrTot(총수요)는 제외.
+    """
+    records: list[dict] = []
+    for it in _items(xml_text):
+        ts = _parse_ts(it.get("baseDatetime"))
+        if ts is None:
+            continue
+        agg: dict[str, float] = {}
+        for tag, source in _FUEL_MAP.items():
+            val = _to_float(it.get(tag))
+            if val is not None:
+                agg[source] = agg.get(source, 0.0) + val
+        for source, mw in agg.items():
+            records.append({"ts": ts, "source": source, "generation_mw": mw})
+    return records
 
 
 def fetch_sukub(api_key: str | None = None, timeout: int = 10) -> list[dict]:
-    """실제 KPX API 호출 → 파싱된 레코드 반환. (네트워크 필요)"""
-    api_key = api_key or config.KPX_API_KEY
-    if not api_key:
-        raise RuntimeError("KPX_API_KEY 미설정 — .env를 확인하세요.")
-    params = {"serviceKey": api_key, "returnType": "json"}
-    resp = requests.get(config.KPX_SUKUB_URL, params=params, timeout=timeout)
-    resp.raise_for_status()
-    records = parse_sukub(resp.json())
-    logger.info("KPX 수급 %d건 수집", len(records))
-    return records
-
-
-# 발전원 키 정규화 (영문/한글 변형 → 표준 라벨)
-_SOURCE_ALIASES = {
-    "nuclear": "원자력", "원자력": "원자력",
-    "coal": "석탄", "유연탄": "석탄", "무연탄": "석탄", "석탄": "석탄",
-    "gas": "LNG", "lng": "LNG", "lng복합": "LNG", "가스": "LNG", "LNG": "LNG",
-    "oil": "유류", "유류": "유류",
-    "hydro": "수력", "수력": "수력",
-    "pumped": "양수", "양수": "양수",
-    "renewable": "신재생", "신재생": "신재생", "태양광": "신재생", "풍력": "신재생",
-}
-_NON_SOURCE_KEYS = {"basedatetime", "기준일시", "ts", "기준시각"}
-
-
-def parse_generation(payload: dict[str, Any]) -> list[dict]:
-    """발전원별 발전량 응답을 long 레코드 [{ts, source, generation_mw}]로 변환.
-
-    두 가지 형태를 모두 지원한다.
-    - long: item = {baseDatetime, fuel/발전원, generation/발전량}
-    - wide: item = {baseDatetime, 원자력: .., 석탄: .., LNG: ..}
-    """
-    items = (
-        payload.get("response", {})
-        .get("body", {})
-        .get("items", {})
-        .get("item", [])
-    )
-    if isinstance(items, dict):
-        items = [items]
-
-    records: list[dict] = []
-    for it in items:
-        ts = _parse_ts(it.get("baseDatetime") or it.get("기준일시"))
-        if ts is None:
-            continue
-        fuel = it.get("fuel") or it.get("발전원") or it.get("fuelType")
-        if fuel is not None:  # long 형태
-            records.append(
-                {
-                    "ts": ts,
-                    "source": _norm_source(fuel),
-                    "generation_mw": _to_float(it.get("generation") or it.get("발전량")),
-                }
-            )
-        else:  # wide 형태 → 소스 컬럼 펼치기
-            for key, val in it.items():
-                if str(key).lower() in _NON_SOURCE_KEYS:
-                    continue
-                records.append(
-                    {"ts": ts, "source": _norm_source(key), "generation_mw": _to_float(val)}
-                )
-    return [r for r in records if r["generation_mw"] is not None]
+    """수급 API 호출 → 파싱된 레코드. (네트워크 필요)"""
+    return parse_sukub(_get(config.KPX_SUKUB_URL, api_key, timeout))
 
 
 def fetch_generation(api_key: str | None = None, timeout: int = 10) -> list[dict]:
-    """발전원별 발전량 API 호출 → long 레코드 반환. (네트워크 필요)"""
+    """발전믹스 API 호출 → long 레코드. (네트워크 필요)"""
+    return parse_generation(_get(config.KPX_GEN_URL, api_key, timeout))
+
+
+def _get(url: str, api_key: str | None, timeout: int, retries: int = 3) -> str:
+    """KPX 호출. 간헐적 5xx에 대비해 재시도하고, 에러에 serviceKey가 노출되지 않게 마스킹."""
     api_key = api_key or config.KPX_API_KEY
     if not api_key:
         raise RuntimeError("KPX_API_KEY 미설정 — .env를 확인하세요.")
-    params = {"serviceKey": api_key, "returnType": "json"}
-    resp = requests.get(config.KPX_GEN_URL, params=params, timeout=timeout)
-    resp.raise_for_status()
-    records = parse_generation(resp.json())
-    logger.info("KPX 발전믹스 %d건 수집", len(records))
-    return records
+
+    last_err: Exception | None = None
+    for attempt in range(1, retries + 1):
+        try:
+            resp = requests.get(url, params={"serviceKey": api_key}, timeout=timeout)
+            if resp.status_code >= 500:  # KPX 간헐적 500 → 재시도
+                last_err = RuntimeError(f"KPX {resp.status_code} (일시적)")
+                logger.warning("KPX %d, 재시도 %d/%d", resp.status_code, attempt, retries)
+                time.sleep(1.5 * attempt)
+                continue
+            resp.raise_for_status()
+            # data.go.kr 표준 에러(SERVICE ACCESS DENIED 등)는 HTTP 200으로 옴 → 본문 확인
+            msg = _result_msg(resp.text)
+            if msg and "OK" not in msg:
+                raise RuntimeError(f"KPX API 거부: {msg}")
+            return resp.text
+        except requests.RequestException as e:
+            last_err = RuntimeError(str(e).replace(api_key, "<KEY>"))
+            time.sleep(1.5 * attempt)
+    raise RuntimeError(f"KPX 호출 실패({retries}회): {last_err}")
 
 
-def _norm_source(raw: Any) -> str:
-    key = str(raw).strip()
-    return _SOURCE_ALIASES.get(key.lower(), _SOURCE_ALIASES.get(key, key))
+def _result_msg(xml_text: str) -> str | None:
+    try:
+        root = ET.fromstring(xml_text)
+        el = root.find(".//resultMsg")
+        return el.text.strip() if el is not None and el.text else None
+    except ET.ParseError:
+        return None
 
 
 def _parse_ts(raw: Any) -> datetime | None:

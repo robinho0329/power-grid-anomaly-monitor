@@ -12,11 +12,11 @@ def test_detects_combination_outlier():
         {
             "current_load": 70000 + rng.normal(0, 1500, n),
             "reserve_rate": 20 + rng.normal(0, 1.0, n),
-            "temperature": 25 + rng.normal(0, 2.0, n),
+            "oper_reserve_rate": 15 + rng.normal(0, 1.0, n),
         }
     )
-    # 조합 이상: 더운데 수요는 낮고 예비율 비정상 (단변량으론 정상범위)
-    df.loc[150] = {"current_load": 60000, "reserve_rate": 3.0, "temperature": 35.0}
+    # 조합 이상: 수요는 낮은데 예비율도 비정상적으로 낮음 (단변량으론 정상범위)
+    df.loc[150] = {"current_load": 60000, "reserve_rate": 3.0, "oper_reserve_rate": 2.0}
 
     out = detect(df, contamination=0.02)
     assert "anomaly" in out.columns

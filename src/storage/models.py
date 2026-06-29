@@ -19,11 +19,13 @@ class PowerSupply(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     ts: Mapped[datetime] = mapped_column(DateTime, index=True)
-    supply_capacity: Mapped[float | None] = mapped_column(Float)
-    current_load: Mapped[float | None] = mapped_column(Float)
-    reserve_power: Mapped[float | None] = mapped_column(Float)
-    reserve_rate: Mapped[float | None] = mapped_column(Float)
-    temperature: Mapped[float | None] = mapped_column(Float)
+    supply_capacity: Mapped[float | None] = mapped_column(Float)     # suppAbility
+    current_load: Mapped[float | None] = mapped_column(Float)        # currPwrTot
+    forecast_load: Mapped[float | None] = mapped_column(Float)       # forecastLoad
+    reserve_power: Mapped[float | None] = mapped_column(Float)       # suppReservePwr
+    reserve_rate: Mapped[float | None] = mapped_column(Float)        # suppReserveRate
+    oper_reserve_power: Mapped[float | None] = mapped_column(Float)  # operReservePwr
+    oper_reserve_rate: Mapped[float | None] = mapped_column(Float)   # operReserveRate
 
 
 class PowerGeneration(Base):
