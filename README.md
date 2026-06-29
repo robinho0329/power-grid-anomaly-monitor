@@ -15,7 +15,11 @@
 ## 🎯 프로젝트 목적
 
 반도체 팹 등 대규모 제조설비는 **전력 안정성이 수율과 직결**됩니다.
-"유틸리티 설비 실시간 감시"를 실데이터로 구현해 **생산관리 + 시계열 이상탐지** 역량을 입증합니다.
+"유틸리티 설비 실시간 감시"를 KPX 공개 데이터로 구현해 **생산관리 + 시계열 이상탐지** 역량을
+**도메인 전이 가능한 방법론 데모**로 시연합니다.
+
+> ⚠️ **포지셔닝**: 이 프로젝트는 "실시간 운영 성과"가 아니라 **방법론 데모**입니다.
+> 정량 비교는 정답 라벨을 아는 **합성 시나리오**에서만 수행하며, 배포본은 데모용 **시드 데이터**를 포함합니다.
 
 | 제조 공정 | 본 프로젝트 |
 |---|---|
@@ -62,7 +66,7 @@ dashboard/
    ├─ 4_🔋_발전믹스.py         # 원자력·LNG·석탄·신재생 스택
    ├─ 5_📈_탐지_비교.py        # 3계층 성능 비교 + 합성 이벤트 주입
    └─ 6_🔮_수요예측.py         # 계절 기준선 예측 + 잔차 이상탐지
-tests/                    # pytest 15개 (파싱·L1·L2·저장·수요예측)
+tests/                    # pytest 27개 (파싱·L1·L2·저장·수요예측·분석플로우·지도)
 ```
 
 ## 🚀 실행
@@ -71,16 +75,25 @@ tests/                    # pytest 15개 (파싱·L1·L2·저장·수요예측)
 # 환경 설정
 py -3.12 -m venv .venv
 .venv\Scripts\activate          # Windows
-pip install -r requirements.txt
-cp .env.example .env            # KPX_API_KEY 입력 (공공데이터포털 발급)
+
+# 의존성 — 용도에 따라 선택
+pip install -r requirements.txt        # 대시보드 배포용 경량(TF 제외)
+pip install -r requirements-full.txt   # 로컬 개발·분석·수집·테스트 전체(TF·pytest 등)
+
+cp .env.example .env            # KPX_API_KEY 입력 (공공데이터포털 발급, Decoding 키)
 
 # 수집 & 대시보드
-python -m scripts.collect_once     # 1회 수집
+python -m scripts.collect_once     # 1회 수집 (KPX 키 필요)
 streamlit run dashboard/app.py     # 대시보드 (http://localhost:8501)
 
-# 테스트
-pytest -q                          # 15개 테스트
+# 테스트 (requirements-full 설치 후)
+pytest -q                          # 27개 테스트
 ```
+
+## ☁️ 배포 (Streamlit Community Cloud)
+- 배포 브랜치: **`feat/generation-mix-gis`**, Main file: `dashboard/app.py`
+- `requirements.txt`(경량)를 사용 — TensorFlow 등 무거운 의존성은 빌드에서 제외해 메모리/시간 초과 방지.
+- 배포본은 **데모용 시드 데이터**(`src/storage/data.db`)로 즉시 화면이 채워지며, 실데이터는 KPX 키 등록 후 누적됩니다.
 
 ## 📡 데이터 출처
 - 한국전력거래소(KPX) 오늘전력수급현황 / 발전원별 발전량 API (공공데이터포털, 개발단계 자동승인)
