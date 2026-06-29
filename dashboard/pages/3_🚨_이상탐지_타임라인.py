@@ -185,5 +185,16 @@ summary = {
 }
 st.dataframe(pd.DataFrame(summary), width="stretch", hide_index=True)
 
-if not l3_available:
-    st.info("💡 L3 LSTM-AutoEncoder는 정상 데이터 60행(5시간) 이상 누적 후 활성화됩니다.")
+# ── L3 딥러닝 상태 (진행바) ──────────────────────────────────────────
+st.subheader("🧠 L3 딥러닝(LSTM-AE) 준비도")
+st.progress(min(len(df) / L3_MIN_ROWS, 1.0))
+if len(df) >= L3_MIN_ROWS:
+    st.caption(
+        f"현재 {len(df):,}/{L3_MIN_ROWS}행 — 활성 가능. "
+        "재구성 오차 기반 '패턴 붕괴형' 이상까지 탐지합니다."
+    )
+else:
+    st.caption(
+        f"현재 {len(df):,}/{L3_MIN_ROWS}행 — 설계 완비, 데이터 충족 시 자동 활성. "
+        "소량 데이터로 억지 추론하지 않습니다(과적합 노이즈 방지)."
+    )

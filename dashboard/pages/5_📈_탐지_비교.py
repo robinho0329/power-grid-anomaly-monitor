@@ -242,14 +242,17 @@ st.caption(
     + f" · 분석 {n:,}개 시점"
 )
 
-# ── L3 상태 안내 ─────────────────────────────────────────────────────
-st.subheader("L3 LSTM-AutoEncoder 상태")
-if len(df) < 60:
-    st.warning(
-        f"현재 {len(df)}행 수집됨. "
-        "정상 데이터 60행(5시간) 이상 누적 후 L3 탐지기가 활성화됩니다. "
-        "이후 재구성 오차 기반의 패턴 붕괴형 이상까지 탐지 가능합니다."
+# ── L3 딥러닝 상태 (진행바) ──────────────────────────────────────────
+L3_MIN_ROWS = 60
+st.subheader("🧠 L3 딥러닝(LSTM-AE) 준비도")
+st.progress(min(len(df) / L3_MIN_ROWS, 1.0))
+if len(df) >= L3_MIN_ROWS:
+    st.caption(
+        f"현재 {len(df):,}/{L3_MIN_ROWS}행 — 활성 가능. "
+        "이상탐지 타임라인 페이지에서 L3 결과를 확인하세요."
     )
 else:
-    st.success(f"데이터 {len(df)}행 누적 완료 — L3 LSTM-AE 활성화 가능 상태입니다.")
-    st.caption("이상탐지 타임라인 페이지에서 L3 결과를 확인하세요.")
+    st.caption(
+        f"현재 {len(df):,}/{L3_MIN_ROWS}행 — 설계 완비, 데이터 충족 시 자동 활성. "
+        "소량 데이터로 억지 추론하지 않습니다(과적합 노이즈 방지)."
+    )

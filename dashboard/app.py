@@ -214,6 +214,13 @@ else:
     cov2.metric("시간 커버리지", f"{dur_h:.1f} 시간")
     cov3.metric("최신 수집", f"{ts.max():%m-%d %H:%M}")
 
+    # L3 딥러닝 준비도 — 솔직한 비활성 표현(억지 렌더 대신 진행바)
+    _l3_target = 60
+    st.caption(f"🧠 L3 딥러닝(LSTM-AE) 준비도 — {len(df):,}/{_l3_target}행")
+    st.progress(min(len(df) / _l3_target, 1.0))
+    if len(df) < _l3_target:
+        st.caption("설계 완비, 데이터 충족 시 자동 활성(소량 데이터 억지 추론 안 함).")
+
 st.caption(
     "데이터: 한국전력거래소(KPX) OpenAPI · 5분 단위 수급/발전믹스. "
     "이상탐지는 전국 단위 시계열에서 수행됩니다(공간 이상탐지 아님)."
