@@ -159,7 +159,7 @@ if not l2_anom.empty:
 
 fig.update_layout(height=650, legend=dict(orientation="h", y=-0.05),
                    margin=dict(l=0, r=0, t=30, b=0))
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width="stretch")
 
 # ── 요약 테이블 ───────────────────────────────────────────────────────
 st.subheader("이상 감지 건수 요약")
@@ -176,7 +176,7 @@ summary = {
         f"{(l2_df['anomaly'] == True).mean()*100:.1f}%",
     ],
 }
-st.dataframe(pd.DataFrame(summary), use_container_width=True, hide_index=True)
+st.dataframe(pd.DataFrame(summary), width="stretch", hide_index=True)
 
 if not l3_available:
     st.info("💡 L3 LSTM-AutoEncoder는 정상 데이터 60행(5시간) 이상 누적 후 활성화됩니다.")

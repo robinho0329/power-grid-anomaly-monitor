@@ -138,7 +138,7 @@ fig.add_trace(go.Bar(x=l2_series.index, y=l2_series.astype(int),
 
 fig.update_layout(height=700, margin=dict(l=0, r=0, t=30, b=0),
                    legend=dict(orientation="h", y=-0.04))
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width="stretch")
 
 # ── 탐지기 성능 비교 표 ───────────────────────────────────────────────
 st.subheader("탐지기 성능 비교")
@@ -177,7 +177,7 @@ comparison = pd.DataFrame({
         "다변량 — 조합 이상 포착",
     ],
 })
-st.dataframe(comparison, use_container_width=True, hide_index=True)
+st.dataframe(comparison, width="stretch", hide_index=True)
 
 st.info(
     "💡 **합성 이벤트 주입** 사이드바를 활성화하면 스파이크·드리프트·레벨이동을 "

@@ -96,7 +96,7 @@ fig1.update_layout(
     legend=dict(orientation="h", yanchor="bottom", y=1.02),
     height=360, margin=dict(l=0, r=0, t=10, b=0),
 )
-st.plotly_chart(fig1, use_container_width=True)
+st.plotly_chart(fig1, width="stretch")
 
 # ── 잔차 차트 ─────────────────────────────────────────────────────────
 st.subheader("잔차 (실측 − 기준선) + 관리한계")
@@ -128,7 +128,7 @@ fig2.update_layout(
     legend=dict(orientation="h", yanchor="bottom", y=1.02),
     height=280, margin=dict(l=0, r=0, t=10, b=0),
 )
-st.plotly_chart(fig2, use_container_width=True)
+st.plotly_chart(fig2, width="stretch")
 
 # ── 예측 성능 지표 ────────────────────────────────────────────────────
 st.subheader("예측 성능 (Hold-out 20%)")
@@ -155,5 +155,5 @@ if n_anom > 0:
             "baseline": "기준선",
             "residual": "잔차",
         }).style.format("{:.2f}"),
-        use_container_width=True,
+        width="stretch",
     )

@@ -95,9 +95,9 @@ def make_gauge(value: float, title: str) -> go.Figure:
     return fig
 
 with g1:
-    st.plotly_chart(make_gauge(latest["reserve_rate"], "공급예비율"), use_container_width=True)
+    st.plotly_chart(make_gauge(latest["reserve_rate"], "공급예비율"), width="stretch")
 with g2:
-    st.plotly_chart(make_gauge(latest["oper_reserve_rate"], "운영예비율"), use_container_width=True)
+    st.plotly_chart(make_gauge(latest["oper_reserve_rate"], "운영예비율"), width="stretch")
 
 # ── 부하 곡선 ────────────────────────────────────────────────────────
 st.subheader("부하 곡선 (당일)")
@@ -121,7 +121,7 @@ fig_load.update_layout(
     legend=dict(orientation="h", yanchor="bottom", y=1.02),
     height=350, margin=dict(l=0, r=0, t=10, b=0),
 )
-st.plotly_chart(fig_load, use_container_width=True)
+st.plotly_chart(fig_load, width="stretch")
 
 # ── 예비율 추이 ──────────────────────────────────────────────────────
 st.subheader("예비율 추이")
@@ -149,7 +149,7 @@ fig_res.update_layout(
     legend=dict(orientation="h", yanchor="bottom", y=1.02),
     height=300, margin=dict(l=0, r=0, t=10, b=0),
 )
-st.plotly_chart(fig_res, use_container_width=True)
+st.plotly_chart(fig_res, width="stretch")
 
 # ── 경보 상태 ────────────────────────────────────────────────────────
 st.subheader("경보 상태")

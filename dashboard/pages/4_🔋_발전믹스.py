@@ -66,7 +66,7 @@ with col_pie:
     fig_pie.update_layout(
         showlegend=False, height=350, margin=dict(l=10, r=10, t=10, b=10)
     )
-    st.plotly_chart(fig_pie, use_container_width=True)
+    st.plotly_chart(fig_pie, width="stretch")
     st.caption(f"총 발전량: {total:,.0f} MW")
 
 with col_bar:
@@ -85,7 +85,7 @@ with col_bar:
         xaxis_title="MW", height=350,
         margin=dict(l=0, r=60, t=10, b=0),
     )
-    st.plotly_chart(fig_bar, use_container_width=True)
+    st.plotly_chart(fig_bar, width="stretch")
 
 st.divider()
 
@@ -115,7 +115,7 @@ fig_area.update_layout(
     legend=dict(orientation="h", yanchor="bottom", y=1.02),
     height=380, margin=dict(l=0, r=0, t=10, b=0),
 )
-st.plotly_chart(fig_area, use_container_width=True)
+st.plotly_chart(fig_area, width="stretch")
 
 # ── 발전원별 비중 추이 (100% 스택) ────────────────────────────────────
 st.subheader("발전원별 비중 추이 (%)")
@@ -137,4 +137,4 @@ fig_pct.update_layout(
     legend=dict(orientation="h", yanchor="bottom", y=1.02),
     height=300, margin=dict(l=0, r=0, t=10, b=0),
 )
-st.plotly_chart(fig_pct, use_container_width=True)
+st.plotly_chart(fig_pct, width="stretch")
