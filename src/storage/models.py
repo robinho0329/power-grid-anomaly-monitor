@@ -1,0 +1,26 @@
+"""SQLAlchemy ORM 모델 — 전력수급 시계열 스냅샷."""
+from __future__ import annotations
+
+from datetime import datetime
+
+from sqlalchemy import DateTime, Float, UniqueConstraint
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class PowerSupply(Base):
+    """5분 단위 전력수급 스냅샷 (전국 계통 기준)."""
+
+    __tablename__ = "power_supply"
+    __table_args__ = (UniqueConstraint("ts", name="uq_power_supply_ts"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    ts: Mapped[datetime] = mapped_column(DateTime, index=True)
+    supply_capacity: Mapped[float | None] = mapped_column(Float)
+    current_load: Mapped[float | None] = mapped_column(Float)
+    reserve_power: Mapped[float | None] = mapped_column(Float)
+    reserve_rate: Mapped[float | None] = mapped_column(Float)
+    temperature: Mapped[float | None] = mapped_column(Float)

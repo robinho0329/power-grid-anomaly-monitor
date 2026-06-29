@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Virtual environment
+.venv/
+
+# Environment variables (강의 보안 원칙: API Key는 절대 커밋 금지)
+.env
+
+# Database (로컬 임시; Actions 수집본만 별도 관리)
+*.db-local
+
+# Models / artifacts
+*.h5
+*.keras
+models/checkpoints/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log

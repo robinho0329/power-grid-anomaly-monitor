@@ -1,0 +1,38 @@
+name: Collect Power Supply
+
+on:
+  workflow_dispatch:
+  # 외부 스케줄러(cron-job.org)가 repository_dispatch로 트리거 권장.
+  # 내장 schedule은 best-effort fallback.
+  schedule:
+    - cron: "10,40 * * * *"   # 매시 :10, :40 (UTC)
+
+permissions:
+  contents: write
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install deps (수집만 — TF 제외)
+        run: pip install requests pandas pyarrow SQLAlchemy python-dotenv
+
+      - name: Collect once
+        env:
+          KPX_API_KEY: ${{ secrets.KPX_API_KEY }}
+        run: python -m scripts.collect_once
+
+      - name: Commit snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "auto(collect): power supply snapshot $(date -u +%FT%TZ)"
+          git push

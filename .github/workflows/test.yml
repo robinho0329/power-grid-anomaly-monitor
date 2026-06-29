@@ -1,0 +1,19 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      # L1/L2/저장/파싱 테스트는 TF 불필요 → 가벼운 의존성만 설치
+      - run: pip install requests pandas pyarrow SQLAlchemy python-dotenv scikit-learn pytest
+      - run: pytest -q

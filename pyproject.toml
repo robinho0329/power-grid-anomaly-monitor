@@ -1,0 +1,12 @@
+[project]
+name = "power-grid-anomaly-monitor"
+version = "0.1.0"
+description = "실시간 전력수급 이상탐지 모니터링 — 제조 메타포 + 다층 이상탐지"
+requires-python = ">=3.11,<3.13"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
