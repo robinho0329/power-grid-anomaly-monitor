@@ -38,13 +38,27 @@ def ewma_anomalies(
 def cusum_change_points(
     series: pd.Series, threshold: float = 5.0, drift: float = 0.5
 ) -> pd.Series:
-    """양/음방향 CUSUM 누적합이 threshold를 넘는 변화점을 bool로 반환."""
+    """양/음방향 표준화 CUSUM이 threshold(σ 단위)를 넘는 변화점을 bool로 반환.
+
+    편차를 표준편차로 정규화해 누적하므로, drift·threshold가 스케일(σ) 단위가 된다.
+    표준 CUSUM 권장값(k=0.5σ, h=5σ)을 그대로 쓸 수 있고, 추세가 있는 시계열에서
+    원시 편차 누적이 한쪽으로 폭주해 거짓경보가 쏟아지던 문제를 줄인다.
+
+    Parameters
+    ----------
+    series    : 값 시계열
+    threshold : 결정 한계 h (σ 단위, 기본 5)
+    drift     : 허용 표류 k (σ 단위, 기본 0.5)
+    """
     x = series.astype(float).to_numpy()
     mean = np.nanmean(x)
+    std = np.nanstd(x)
+    if not np.isfinite(std) or std == 0:
+        std = 1.0  # 분산 0이면 변화점 없음 → 정규화 안전장치
     sp = sn = 0.0
     flags = np.zeros(len(x), dtype=bool)
     for i, v in enumerate(x):
-        d = (v - mean) if not np.isnan(v) else 0.0
+        d = ((v - mean) / std) if not np.isnan(v) else 0.0
         sp = max(0.0, sp + d - drift)
         sn = min(0.0, sn + d + drift)
         if sp > threshold or sn < -threshold:

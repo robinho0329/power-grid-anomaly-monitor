@@ -1,0 +1,44 @@
+name: Analyze & Portfolio PPT
+
+# 수집(collect.yml)이 DB를 갱신한 뒤, 분석 플로우 실행 + 포트폴리오 PPT를 자동 생성/커밋.
+on:
+  workflow_dispatch:
+  # 수집보다 약간 뒤(매시 :20, :50)에 분석 — 최신 스냅샷 반영
+  schedule:
+    - cron: "20,50 * * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # L3(TensorFlow)는 무거우므로 CI 분석/PPT에서는 제외 — L1/L2/잔차 + PPT만.
+      # (L3는 데이터 충분 시 로컬/별도 잡에서 학습)
+      - name: Install deps (분석·PPT — TF 제외)
+        run: pip install requests pandas pyarrow SQLAlchemy python-dotenv scikit-learn python-pptx matplotlib
+
+      # 한글 폰트 (PPT 차트 한글 깨짐 방지)
+      - name: Install Korean font
+        run: |
+          sudo apt-get update && sudo apt-get install -y fonts-nanum
+          echo "PORTFOLIO_FONT=/usr/share/fonts/truetype/nanum/NanumGothic.ttf" >> $GITHUB_ENV
+
+      - name: Generate portfolio PPT
+        run: python scripts/generate_portfolio_ppt.py
+
+      - name: Commit reports
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A reports/
+          git diff --cached --quiet || git commit -m "auto(analyze): portfolio PPT $(date -u +%FT%TZ)"
+          git push

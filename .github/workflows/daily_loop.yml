@@ -1,0 +1,36 @@
+name: Daily Dev Loop
+
+# 매일 한 번 회귀 테스트·누적 통계·탐지 요약·마일스톤 리포트를 생성/커밋.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 0 * * *"   # 매일 00:15 UTC = 09:15 KST
+
+permissions:
+  contents: write
+
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # daily_dev_loop는 내부에서 pytest + 분석(L1/L2/잔차)을 돌림 — TF 제외 경량 설치.
+      - name: Install deps (TF 제외)
+        run: pip install requests pandas pyarrow SQLAlchemy python-dotenv scikit-learn pytest
+
+      - name: Run daily dev loop
+        run: python scripts/daily_dev_loop.py
+
+      - name: Commit daily report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A reports/
+          git diff --cached --quiet || git commit -m "auto(daily): dev loop report $(date -u +%F)"
+          git push

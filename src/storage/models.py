@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import DateTime, Float, String, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -19,13 +20,13 @@ class PowerSupply(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     ts: Mapped[datetime] = mapped_column(DateTime, index=True)
-    supply_capacity: Mapped[float | None] = mapped_column(Float)     # suppAbility
-    current_load: Mapped[float | None] = mapped_column(Float)        # currPwrTot
-    forecast_load: Mapped[float | None] = mapped_column(Float)       # forecastLoad
-    reserve_power: Mapped[float | None] = mapped_column(Float)       # suppReservePwr
-    reserve_rate: Mapped[float | None] = mapped_column(Float)        # suppReserveRate
-    oper_reserve_power: Mapped[float | None] = mapped_column(Float)  # operReservePwr
-    oper_reserve_rate: Mapped[float | None] = mapped_column(Float)   # operReserveRate
+    supply_capacity: Mapped[Optional[float]] = mapped_column(Float)     # suppAbility
+    current_load: Mapped[Optional[float]] = mapped_column(Float)        # currPwrTot
+    forecast_load: Mapped[Optional[float]] = mapped_column(Float)       # forecastLoad
+    reserve_power: Mapped[Optional[float]] = mapped_column(Float)       # suppReservePwr
+    reserve_rate: Mapped[Optional[float]] = mapped_column(Float)        # suppReserveRate
+    oper_reserve_power: Mapped[Optional[float]] = mapped_column(Float)  # operReservePwr
+    oper_reserve_rate: Mapped[Optional[float]] = mapped_column(Float)   # operReserveRate
 
 
 class PowerGeneration(Base):
@@ -37,4 +38,4 @@ class PowerGeneration(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     ts: Mapped[datetime] = mapped_column(DateTime, index=True)
     source: Mapped[str] = mapped_column(String(20), index=True)
-    generation_mw: Mapped[float | None] = mapped_column(Float)
+    generation_mw: Mapped[Optional[float]] = mapped_column(Float)

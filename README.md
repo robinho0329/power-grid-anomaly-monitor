@@ -44,28 +44,42 @@
 src/
 ├─ config.py              # 경로·API·임계 상수
 ├─ collectors/kpx.py      # KPX 수급 API 수집 + 파싱(순수 함수)
-├─ storage/               # SQLAlchemy 모델 + 멱등 저장
+├─ storage/               # SQLAlchemy ORM 모델 + 멱등 저장
 ├─ analysis/
-│  ├─ ewma_cusum.py       # L1 통계
-│  ├─ isolation_forest.py # L2 ML
+│  ├─ ewma_cusum.py       # L1 통계 (EWMA + CUSUM)
+│  ├─ isolation_forest.py # L2 ML (다변량)
+│  ├─ demand_forecast.py  # 수요 예측 + 잔차 기반 이상탐지
 │  └─ lstm_autoencoder.py # L3 딥러닝 (Phase 2)
-└─ notifier/discord.py    # 경보
+└─ notifier/discord.py    # Discord 경보
 flows/collect_flow.py     # 수집 오케스트레이션
 scripts/collect_once.py   # 진입점 (CI cron)
-dashboard/app.py          # Streamlit 모니터링
-tests/                    # pytest (파싱·L1·L2·저장)
+dashboard/
+├─ app.py                 # 메인 (수급 요약 KPI)
+└─ pages/
+   ├─ 1_🗺️_발전소_지도.py     # GIS 맥락 레이어
+   ├─ 2_📊_실시간_모니터링.py  # 부하 곡선·예비율 게이지·경보
+   ├─ 3_🚨_이상탐지_타임라인.py # L1/L2/L3 결과 중첩 시각화
+   ├─ 4_🔋_발전믹스.py         # 원자력·LNG·석탄·신재생 스택
+   ├─ 5_📈_탐지_비교.py        # 3계층 성능 비교 + 합성 이벤트 주입
+   └─ 6_🔮_수요예측.py         # 계절 기준선 예측 + 잔차 이상탐지
+tests/                    # pytest 15개 (파싱·L1·L2·저장·수요예측)
 ```
 
 ## 🚀 실행
 
 ```bash
-py -3.12 -m venv .venv && source .venv/Scripts/activate   # Windows: .venv\Scripts\activate
+# 환경 설정
+py -3.12 -m venv .venv
+.venv\Scripts\activate          # Windows
 pip install -r requirements.txt
-cp .env.example .env        # KPX_API_KEY 입력 (공공데이터포털 발급)
+cp .env.example .env            # KPX_API_KEY 입력 (공공데이터포털 발급)
 
+# 수집 & 대시보드
 python -m scripts.collect_once     # 1회 수집
-streamlit run dashboard/app.py     # 대시보드
-pytest -q                          # 테스트
+streamlit run dashboard/app.py     # 대시보드 (http://localhost:8501)
+
+# 테스트
+pytest -q                          # 15개 테스트
 ```
 
 ## 📡 데이터 출처
@@ -75,12 +89,11 @@ pytest -q                          # 테스트
 - API Key는 `.env`에만 저장하고 `.gitignore`에 포함 — GitHub는 Secrets 사용.
 
 ## 🗺️ 로드맵
-- [x] Phase 1: 수집 + L1/L2 이상탐지 + 대시보드 + CI 골격
-- [x] Phase 1.5(진행): **발전믹스 수집** + **발전소 분포 지도(GIS 맥락 레이어)**
-- [ ] Phase 1.5(잔여): Discord 경보 연동, 외부 cron, 발전믹스→L2 변수 투입
-- [ ] Phase 2: L3 LSTM-AE + 3계층 비교 분석 + 포트폴리오 덱
+- [x] Phase 1: 수집 · L1/L2 이상탐지 · 발전소 지도 · CI 골격
+- [x] Phase 1.5: **대시보드 5페이지** (모니터링·이상타임라인·발전믹스·탐지비교·수요예측) + **수요 예측 모듈** (`demand_forecast.py`)
+- [ ] Phase 1.5(잔여): Discord 경보 연동, 외부 cron, KPX API 키 등록
+- [ ] Phase 2: L3 LSTM-AE 학습·평가 + 3계층 거짓경보율·탐지지연 비교 표 + 포트폴리오 덱
 
 > 🗺️ **지도에 대한 입장:** 실시간 수급은 전국 단일값이라 공간 차원이 없다.
 > 지도는 발전소 **위치(정적)** 를 보여주는 **맥락·탐색 레이어**이며, 이상탐지는
-> 전국 시계열에서 수행한다(공간 이상탐지가 아님). `data/plants.csv`는 주요 발전소
-> **근사 좌표 시드**로, 공식 데이터셋으로 교체 가능하다.
+> 전국 시계열에서 수행한다(공간 이상탐지가 아님).
