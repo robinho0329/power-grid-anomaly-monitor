@@ -1,4 +1,12 @@
-"""실시간 전력수급 모니터링 대시보드 (Streamlit) — Phase 1 골격."""
+"""전력수급 이상탐지 — 대시보드 홈.
+
+청자 중심 '프로젝트 브리핑' 화면:
+  1) 이 대시보드가 누구를 위해, 무엇을 답하는지
+  2) 전력계통 ↔ 제조 생산라인 매핑(이 포트폴리오의 핵심 서사)
+  3) 지금 계통 상태(쉬운 말 해석 + 경보 배너)
+  4) 각 페이지를 '왜·언제' 보는지 안내
+  5) 방법론(L1·L2·L3·잔차) 요약과 데이터 커버리지
+"""
 from __future__ import annotations
 
 import sys
@@ -6,29 +14,207 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
 from src import config  # noqa: E402
 from src.storage import database  # noqa: E402
 
-st.set_page_config(page_title="전력수급 이상탐지 모니터", page_icon="⚡", layout="wide")
-st.title("⚡ 실시간 전력수급 이상탐지 모니터링")
-st.caption("한국 전력계통을 제조 생산라인에 빗댄 다층 이상탐지 (통계 · ML · 딥러닝)")
+st.set_page_config(
+    page_title="전력수급 이상탐지 모니터",
+    page_icon="⚡",
+    layout="wide",
+)
 
 
 @st.cache_data(ttl=300)
-def load():
+def load() -> pd.DataFrame:
     return database.load_df()
 
 
 df = load()
+
+# ──────────────────────────────────────────────────────────────────────
+# 헤더 — 한 줄 가치 제안
+# ──────────────────────────────────────────────────────────────────────
+st.title("⚡ 실시간 전력수급 이상탐지 모니터링")
+st.markdown(
+    "한국 전력계통(KPX)을 **제조 생산라인에 빗대어**, "
+    "통계·머신러닝·딥러닝 **3계층**으로 평소와 다른 신호를 조기에 잡아내는 모니터링 시스템입니다."
+)
+
+# ──────────────────────────────────────────────────────────────────────
+# 누구를 위해 / 무엇을 답하나 / 핵심 차별점
+# ──────────────────────────────────────────────────────────────────────
+a, b, c = st.columns(3)
+with a:
+    with st.container(border=True):
+        st.markdown("##### 👥 누구를 위한 화면인가")
+        st.markdown(
+            "- 전력 수급 **운영 관리자** — 현황 감시·경보\n"
+            "- 제조 AI·예지보전 **기술 리뷰어** — 방법론 평가"
+        )
+with b:
+    with st.container(border=True):
+        st.markdown("##### ❓ 무엇을 답하나")
+        st.markdown(
+            "- 지금 계통은 **안전한가?**\n"
+            "- 평소 패턴과 **다른 이상**이 있는가?\n"
+            "- 단순 임계값이 **놓치는** 신호는?"
+        )
+with c:
+    with st.container(border=True):
+        st.markdown("##### 🎯 핵심 차별점")
+        st.markdown(
+            "- 주기성을 고려한 **잔차 기반** 탐지\n"
+            "- 통계→ML→딥러닝 **다층 교차검증**\n"
+            "- **도메인 전이** 가능한 설계"
+        )
+
+st.divider()
+
+# ──────────────────────────────────────────────────────────────────────
+# 지금 계통 상태 — 쉬운 말 해석 + 경보 배너
+# ──────────────────────────────────────────────────────────────────────
+st.subheader("📍 지금 계통 상태")
+
 if df.empty:
-    st.info("아직 수집된 데이터가 없습니다. `python -m scripts.collect_once` 로 수집을 시작하세요.")
+    st.info(
+        "아직 수집된 데이터가 없습니다. 로컬에서는 `python -m scripts.collect_once` 로 수집을 시작하세요. "
+        "(배포본에는 데모용 시드 데이터가 포함됩니다.)"
+    )
 else:
     latest = df.iloc[-1]
-    c1, c2, c3 = st.columns(3)
-    c1.metric(config.METRICS["current_load"], f"{latest['current_load']:,.0f}")
-    c2.metric(config.METRICS["reserve_rate"], f"{latest['reserve_rate']:.1f}%")
-    c3.metric(config.METRICS["oper_reserve_rate"], f"{latest['oper_reserve_rate']:.1f}%")
-    st.line_chart(df.set_index("ts")[["current_load", "forecast_load"]])
-    st.line_chart(df.set_index("ts")[["reserve_rate", "oper_reserve_rate"]])
+    prev = df.iloc[-2] if len(df) > 1 else latest
+    rate = float(latest["reserve_rate"])
+    th = config.RESERVE_RATE_THRESHOLDS
+
+    # 경보 등급 판정 (예비율이 낮을수록 위험)
+    if rate < th["심각"]:
+        level, icon, banner = "심각", "🔴", st.error
+        msg = "공급 여유가 매우 부족합니다. 즉시 수급 대책이 필요한 수준입니다."
+    elif rate < th["경계"]:
+        level, icon, banner = "경계", "🟠", st.warning
+        msg = "공급 여유가 빠르게 줄고 있습니다. 예비 자원 점검이 필요합니다."
+    elif rate < th["주의"]:
+        level, icon, banner = "주의", "🟡", st.warning
+        msg = "여유가 평소보다 낮습니다. 추이를 주의 깊게 지켜볼 구간입니다."
+    else:
+        level, icon, banner = "정상", "🟢", st.success
+        msg = "공급 여유가 충분합니다. 계통은 안정적으로 운영되고 있습니다."
+
+    banner(f"{icon} **{level}** — 공급예비율 {rate:.1f}%. {msg}")
+
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric(
+        "현재 수요 (부하)",
+        f"{latest['current_load']:,.0f} MW",
+        delta=f"{latest['current_load'] - prev['current_load']:+,.0f} MW",
+        help="생산라인의 '현재 처리량'에 해당 — 지금 계통이 감당 중인 전력량",
+    )
+    k2.metric(
+        "공급능력",
+        f"{latest['supply_capacity']:,.0f} MW",
+        help="라인의 '최대 캐파'에 해당 — 동원 가능한 총 공급량",
+    )
+    k3.metric(
+        "공급예비율",
+        f"{rate:.1f} %",
+        delta=f"{rate - float(prev['reserve_rate']):+.1f} %",
+        help="'안전재고 여유율'에 해당 — 낮을수록 위험(경보 기준)",
+    )
+    k4.metric(
+        "운영예비율",
+        f"{float(latest['oper_reserve_rate']):.1f} %",
+        help="즉시 투입 가능한 실질 여유 — 운영 관점의 안전 마진",
+    )
+    st.caption(
+        f"기준 시각: {pd.to_datetime(latest['ts']):%Y-%m-%d %H:%M} · "
+        "자세한 추이는 좌측 **📊 실시간 모니터링** 페이지"
+    )
+
+st.divider()
+
+# ──────────────────────────────────────────────────────────────────────
+# 핵심 서사 — 전력계통 ↔ 제조 생산라인 매핑
+# ──────────────────────────────────────────────────────────────────────
+st.subheader("🏭 왜 '제조 생산라인'에 빗댔나")
+st.markdown(
+    "전력계통의 수급 감시는 제조 현장의 **예지보전(이상감지)** 과 구조가 같습니다. "
+    "이 매핑 덕분에, 여기서 검증한 다층 이상탐지 방법론은 제조 센서 데이터로 **그대로 전이**됩니다."
+)
+mapping = pd.DataFrame(
+    {
+        "전력계통 (이 프로젝트)": [
+            "현재수요(부하, MW)",
+            "공급능력(MW)",
+            "공급예비율(%)",
+            "예비율 경보 단계(관심·주의·경계·심각)",
+            "5분 단위 수급 스냅샷",
+            "다층 이상탐지(L1·L2·L3)",
+        ],
+        "제조 생산라인 (전이 대상)": [
+            "생산라인 처리량(throughput)",
+            "라인 최대 캐파(capacity)",
+            "안전재고 여유율(buffer)",
+            "설비 경보 등급(alarm tier)",
+            "센서 스트림(sensor stream)",
+            "예지보전 이상감지(PdM)",
+        ],
+    }
+)
+st.table(mapping)
+
+# ──────────────────────────────────────────────────────────────────────
+# 이 대시보드 읽는 법 — 페이지 가이드
+# ──────────────────────────────────────────────────────────────────────
+st.subheader("🧭 이 대시보드 읽는 법")
+st.markdown("왼쪽 사이드바에서 페이지를 이동하세요. 각 페이지는 서로 다른 질문에 답합니다.")
+g1, g2 = st.columns(2)
+with g1:
+    st.markdown(
+        "**🗺️ 발전소 지도** · *전력이 어디서 만들어지나*\n"
+        "전국 발전소 위치·설비용량·발전원을 지도 맥락으로.\n\n"
+        "**📊 실시간 모니터링** · *지금 안전한가*\n"
+        "부하 곡선·예비율 게이지·경보 상태를 한눈에.\n\n"
+        "**🚨 이상탐지 타임라인** · *언제 이상이 있었나*\n"
+        "L1·L2·L3 결과를 같은 시간축에 중첩 비교."
+    )
+with g2:
+    st.markdown(
+        "**🔋 발전믹스** · *무엇으로 만들고 있나*\n"
+        "원자력·LNG·석탄·신재생 비중과 추이.\n\n"
+        "**📈 탐지 비교** · *왜 다층 탐지인가*\n"
+        "단순 임계값 대비 강점을 합성 이벤트로 입증.\n\n"
+        "**🔮 수요 예측** · *앞으로 어떻게 되나*\n"
+        "주기성 제거 후 잔차 기반 예측·이상탐지."
+    )
+
+# ──────────────────────────────────────────────────────────────────────
+# 방법론 & 데이터 커버리지
+# ──────────────────────────────────────────────────────────────────────
+with st.expander("🔬 방법론 요약 — 3계층 + 잔차 이상탐지"):
+    st.markdown(
+        "- **L1 통계 (EWMA · CUSUM)** — 관리도 기반. 가볍고 즉시 동작, 급변·누적 변화에 강함.\n"
+        "- **L2 머신러닝 (Isolation Forest)** — 다변량 조합 이상 포착. 라벨 불필요.\n"
+        "- **L3 딥러닝 (LSTM-AutoEncoder)** — 재구성 오차로 '패턴 붕괴형' 이상 탐지(데이터 충분 시 활성).\n"
+        "- **잔차 기반 (수요예측)** — 일·주 주기성을 기준선으로 제거 → 주기성을 무시하는 단순 임계값의 거짓경보를 크게 감소.\n\n"
+        "여러 계층이 **서로 다른 종류의 이상**을 교차 검증하는 것이 핵심입니다."
+    )
+
+cov1, cov2, cov3 = st.columns(3)
+if df.empty:
+    cov1.metric("누적 데이터", "0 건")
+    cov2.metric("커버리지", "—")
+    cov3.metric("상태", "수집 대기")
+else:
+    ts = pd.to_datetime(df["ts"])
+    dur_h = (ts.max() - ts.min()).total_seconds() / 3600
+    cov1.metric("누적 데이터", f"{len(df):,} 건")
+    cov2.metric("시간 커버리지", f"{dur_h:.1f} 시간")
+    cov3.metric("최신 수집", f"{ts.max():%m-%d %H:%M}")
+
+st.caption(
+    "데이터: 한국전력거래소(KPX) OpenAPI · 5분 단위 수급/발전믹스. "
+    "이상탐지는 전국 단위 시계열에서 수행됩니다(공간 이상탐지 아님)."
+)
