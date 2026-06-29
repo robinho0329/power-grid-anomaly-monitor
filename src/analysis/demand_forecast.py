@@ -18,6 +18,34 @@ import pandas as pd
 from src.analysis.ewma_cusum import ewma_anomalies
 
 
+def _fit_baseline_map(series: pd.Series) -> Tuple[pd.Series, float]:
+    """요일·시간대 평균 룩업맵과 전체 평균(폴백)을 적합.
+
+    이 맵을 별도로 분리한 이유: 학습/평가 분할 시 train 구간으로만 적합한 뒤
+    test 구간에 매핑해야 데이터 누수가 없기 때문(evaluate_forecast 참고).
+    """
+    s = series.copy()
+    s.index = pd.to_datetime(s.index)
+    idx = s.index
+    keys = pd.DataFrame({"value": s.values, "dow": idx.dayofweek, "hm": idx.strftime("%H:%M")})
+    baseline_map = keys.groupby(["dow", "hm"])["value"].mean()
+    return baseline_map, float(s.mean())
+
+
+def _apply_baseline_map(
+    index: pd.Index,
+    baseline_map: pd.Series,
+    fallback: float,
+) -> pd.Series:
+    """적합된 룩업맵을 임의 인덱스(요일·시간대)에 매핑. 미존재 키는 폴백 평균."""
+    idx = pd.to_datetime(pd.Index(index))
+    vals = [
+        baseline_map.get((d, h), np.nan)
+        for d, h in zip(idx.dayofweek, idx.strftime("%H:%M"))
+    ]
+    return pd.Series(vals, index=index, dtype=float).fillna(fallback)
+
+
 def build_seasonal_baseline(
     series: pd.Series,
     freq: str = "5min",
@@ -29,20 +57,8 @@ def build_seasonal_baseline(
     series : DatetimeIndex를 가진 수요 시계열
     freq   : 원본 데이터 주기 (기본 5분)
     """
-    s = series.copy()
-    s.index = pd.to_datetime(s.index)
-    df = pd.DataFrame({"value": s})
-    df["dow"] = df.index.dayofweek      # 0=월, 6=일
-    df["hm"] = df.index.strftime("%H:%M")  # "00:00" ~ "23:55"
-    # 요일+시간대 평균 (기준선)
-    baseline_map = df.groupby(["dow", "hm"])["value"].mean()
-    baseline = df.apply(
-        lambda r: baseline_map.get((r["dow"], r["hm"]), np.nan), axis=1
-    )
-    # 전체 평균으로 NaN 보완 (데이터 부족 시간대)
-    baseline = baseline.fillna(s.mean())
-    baseline.index = s.index
-    return baseline
+    baseline_map, fallback = _fit_baseline_map(series)
+    return _apply_baseline_map(series.index, baseline_map, fallback)
 
 
 def residual_anomalies(
@@ -108,7 +124,10 @@ def evaluate_forecast(
     train = series.iloc[:split]
     test = series.iloc[split:]
 
-    baseline_test = build_seasonal_baseline(series).iloc[split:]
+    # 데이터 누수 방지: 기준선은 train 구간으로만 적합한 뒤 test에 매핑한다.
+    # (전체 series로 적합하면 test 정보가 기준선에 새어 MAE/MAPE가 낙관 편향됨)
+    baseline_map, fallback = _fit_baseline_map(train)
+    baseline_test = _apply_baseline_map(test.index, baseline_map, fallback)
     residuals = test - baseline_test
 
     mae = float(np.abs(residuals).mean())
