@@ -13,8 +13,12 @@ import streamlit as st  # noqa: E402
 from src.storage import database  # noqa: E402
 
 st.set_page_config(page_title="발전믹스", page_icon="🔋", layout="wide")
-st.title("🔋 발전믹스 (발전원별 발전량)")
-st.caption("원자력·LNG·석탄·신재생·수력 등 발전원별 비중을 제조 설비 가동 포트폴리오처럼 시각화합니다.")
+st.title("🔋 발전믹스 — 무엇으로 전기를 만들고 있나")
+st.markdown(
+    "**무엇을 보는 화면인가** — 지금 전력이 원자력·LNG·석탄·신재생 등 "
+    "*어떤 발전원의 조합*으로 공급되는지입니다."
+)
+st.caption("제조의 '설비 가동 포트폴리오'에 해당 — 발전원별 비중과 그 변화를 추적합니다.")
 
 SOURCE_COLORS = {
     "원자력": "#4e79a7",

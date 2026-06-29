@@ -19,9 +19,10 @@ from src.storage import database  # noqa: E402
 
 st.set_page_config(page_title="발전소 지도", page_icon="🗺️", layout="wide")
 st.title("🗺️ 발전소 분포 + 실시간 발전믹스")
+st.markdown("**무엇을 보는 화면인가** — 전력이 *어디서, 무엇으로* 만들어지는지의 공간 맥락입니다.")
 st.caption(
     "점 = 발전소 위치(시드·근사 좌표), 크기 = 설비용량, 색 = 발전원. "
-    "지도는 맥락용이며 이상탐지는 전국 시계열에서 수행됩니다."
+    "지도는 맥락용이며, 이상탐지는 이 위치가 아니라 전국 단위 시계열에서 수행됩니다(공간 이상탐지 아님)."
 )
 
 plants = load_plants()
