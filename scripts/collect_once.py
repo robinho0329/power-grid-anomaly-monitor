@@ -15,8 +15,8 @@ from flows.collect_flow import run_collect  # noqa: E402
 def main() -> int:
     logging.basicConfig(level=config.LOG_LEVEL, format="%(asctime)s %(levelname)s %(message)s")
     try:
-        inserted = run_collect()
-        print(f"OK: 신규 {inserted}건 저장")
+        result = run_collect()
+        print(f"OK: 수급 {result['sukub']}건, 발전믹스 {result['generation']}건 저장")
         return 0
     except Exception as e:  # noqa: BLE001
         print(f"수집 실패: {e}", file=sys.stderr)

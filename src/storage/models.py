@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, UniqueConstraint
+from sqlalchemy import DateTime, Float, String, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -24,3 +24,15 @@ class PowerSupply(Base):
     reserve_power: Mapped[float | None] = mapped_column(Float)
     reserve_rate: Mapped[float | None] = mapped_column(Float)
     temperature: Mapped[float | None] = mapped_column(Float)
+
+
+class PowerGeneration(Base):
+    """5분 단위 발전원별 발전량 (long format: ts × source)."""
+
+    __tablename__ = "power_generation"
+    __table_args__ = (UniqueConstraint("ts", "source", name="uq_power_gen_ts_source"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    ts: Mapped[datetime] = mapped_column(DateTime, index=True)
+    source: Mapped[str] = mapped_column(String(20), index=True)
+    generation_mw: Mapped[float | None] = mapped_column(Float)

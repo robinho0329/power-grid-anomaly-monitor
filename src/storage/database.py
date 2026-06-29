@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from src import config
-from src.storage.models import Base, PowerSupply
+from src.storage.models import Base, PowerGeneration, PowerSupply
 
 
 def get_engine(url: str | None = None):
@@ -37,8 +37,41 @@ def upsert_records(records: list[dict], engine=None) -> int:
     return inserted
 
 
+def upsert_generation(records: list[dict], engine=None) -> int:
+    """(ts, source) 기준 멱등 저장. 신규 저장 건수 반환."""
+    engine = engine or get_engine()
+    init_db(engine)
+    SessionLocal = sessionmaker(bind=engine, future=True)
+    inserted = 0
+    with SessionLocal() as session:  # type: Session
+        existing = {
+            (ts, src)
+            for (ts, src) in session.execute(
+                select(PowerGeneration.ts, PowerGeneration.source)
+            ).all()
+        }
+        for r in records:
+            if (r["ts"], r["source"]) in existing:
+                continue
+            session.add(PowerGeneration(**r))
+            inserted += 1
+        session.commit()
+    return inserted
+
+
 def load_df(engine=None) -> pd.DataFrame:
     """전체 수급 시계열을 DataFrame으로 로드 (ts 오름차순)."""
     engine = engine or get_engine()
     init_db(engine)
     return pd.read_sql_table("power_supply", engine).sort_values("ts").reset_index(drop=True)
+
+
+def load_generation_df(engine=None) -> pd.DataFrame:
+    """발전원별 발전량 시계열 로드 (long format)."""
+    engine = engine or get_engine()
+    init_db(engine)
+    return (
+        pd.read_sql_table("power_generation", engine)
+        .sort_values("ts")
+        .reset_index(drop=True)
+    )

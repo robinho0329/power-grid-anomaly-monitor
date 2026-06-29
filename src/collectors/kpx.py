@@ -61,6 +61,77 @@ def fetch_sukub(api_key: str | None = None, timeout: int = 10) -> list[dict]:
     return records
 
 
+# 발전원 키 정규화 (영문/한글 변형 → 표준 라벨)
+_SOURCE_ALIASES = {
+    "nuclear": "원자력", "원자력": "원자력",
+    "coal": "석탄", "유연탄": "석탄", "무연탄": "석탄", "석탄": "석탄",
+    "gas": "LNG", "lng": "LNG", "lng복합": "LNG", "가스": "LNG", "LNG": "LNG",
+    "oil": "유류", "유류": "유류",
+    "hydro": "수력", "수력": "수력",
+    "pumped": "양수", "양수": "양수",
+    "renewable": "신재생", "신재생": "신재생", "태양광": "신재생", "풍력": "신재생",
+}
+_NON_SOURCE_KEYS = {"basedatetime", "기준일시", "ts", "기준시각"}
+
+
+def parse_generation(payload: dict[str, Any]) -> list[dict]:
+    """발전원별 발전량 응답을 long 레코드 [{ts, source, generation_mw}]로 변환.
+
+    두 가지 형태를 모두 지원한다.
+    - long: item = {baseDatetime, fuel/발전원, generation/발전량}
+    - wide: item = {baseDatetime, 원자력: .., 석탄: .., LNG: ..}
+    """
+    items = (
+        payload.get("response", {})
+        .get("body", {})
+        .get("items", {})
+        .get("item", [])
+    )
+    if isinstance(items, dict):
+        items = [items]
+
+    records: list[dict] = []
+    for it in items:
+        ts = _parse_ts(it.get("baseDatetime") or it.get("기준일시"))
+        if ts is None:
+            continue
+        fuel = it.get("fuel") or it.get("발전원") or it.get("fuelType")
+        if fuel is not None:  # long 형태
+            records.append(
+                {
+                    "ts": ts,
+                    "source": _norm_source(fuel),
+                    "generation_mw": _to_float(it.get("generation") or it.get("발전량")),
+                }
+            )
+        else:  # wide 형태 → 소스 컬럼 펼치기
+            for key, val in it.items():
+                if str(key).lower() in _NON_SOURCE_KEYS:
+                    continue
+                records.append(
+                    {"ts": ts, "source": _norm_source(key), "generation_mw": _to_float(val)}
+                )
+    return [r for r in records if r["generation_mw"] is not None]
+
+
+def fetch_generation(api_key: str | None = None, timeout: int = 10) -> list[dict]:
+    """발전원별 발전량 API 호출 → long 레코드 반환. (네트워크 필요)"""
+    api_key = api_key or config.KPX_API_KEY
+    if not api_key:
+        raise RuntimeError("KPX_API_KEY 미설정 — .env를 확인하세요.")
+    params = {"serviceKey": api_key, "returnType": "json"}
+    resp = requests.get(config.KPX_GEN_URL, params=params, timeout=timeout)
+    resp.raise_for_status()
+    records = parse_generation(resp.json())
+    logger.info("KPX 발전믹스 %d건 수집", len(records))
+    return records
+
+
+def _norm_source(raw: Any) -> str:
+    key = str(raw).strip()
+    return _SOURCE_ALIASES.get(key.lower(), _SOURCE_ALIASES.get(key, key))
+
+
 def _parse_ts(raw: Any) -> datetime | None:
     if not raw:
         return None
