@@ -110,7 +110,7 @@ simple_thresh = (series < mean_val - 3 * std_val) | (series > mean_val + 3 * std
 # L2 IF
 l2_df = isolation_forest.detect(
     plot_df.set_index("ts").loc[series.index].reset_index(),
-    contamination=0.02,
+    contamination="auto",  # 정상 구간엔 강제 라벨 없이 정직하게
 )
 l2_series = l2_df.set_index("ts")["anomaly"].reindex(series.index).fillna(False)
 

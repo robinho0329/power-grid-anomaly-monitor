@@ -51,7 +51,14 @@ with st.sidebar:
         ewma_span = st.slider("EWMA 윈도우 (5분 단위)", 6, 48, 12)
         ewma_k = st.slider("EWMA 관리한계 σ 배수", 1.5, 5.0, 3.0, 0.5)
         cusum_thresh = st.slider("CUSUM 임계", 1.0, 20.0, 5.0, 0.5)
-        if2_contamination = st.slider("IF 이상 비율", 0.01, 0.10, 0.02, 0.01)
+        if2_auto = st.checkbox(
+            "IF 이상 비율 자동(auto)", value=True,
+            help="끄면 비율을 직접 고정합니다. 고정 시 정상 데이터에도 그 비율만큼 강제로 이상이 표시됩니다.",
+        )
+        if2_contamination = (
+            "auto" if if2_auto
+            else st.slider("IF 이상 비율(고정)", 0.01, 0.10, 0.02, 0.01)
+        )
 
 plot_df = df.tail(window_h * 12).copy()  # 5분×12 = 1시간
 
