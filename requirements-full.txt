@@ -1,0 +1,26 @@
+# 전체 의존성 (로컬 개발·분석·수집·PPT·테스트)
+# 대시보드 배포(Streamlit Cloud)는 경량 requirements.txt 를 사용한다.
+#   설치: pip install -r requirements-full.txt
+
+# 수집/저장
+requests>=2.31
+pandas>=2.2
+pyarrow>=15
+SQLAlchemy>=2.0
+python-dotenv>=1.0
+
+# 이상탐지 (L1 통계는 내장/numpy, L2 ML, L3 DL)
+numpy>=1.26
+scikit-learn>=1.4
+tensorflow>=2.16        # L3 LSTM-AutoEncoder (Phase 2)
+
+# 시각화/대시보드
+streamlit>=1.36
+plotly>=5.22
+
+# 포트폴리오 PPT 자동 생성
+python-pptx>=0.6.23
+matplotlib>=3.8
+
+# 테스트
+pytest>=8.0
