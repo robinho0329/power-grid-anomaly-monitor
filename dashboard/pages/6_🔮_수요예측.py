@@ -48,8 +48,10 @@ with st.sidebar:
         }[x],
     )
     window_h = st.slider("분석 범위 (시간)", 6, 168, 48)
-    forecast_steps = st.slider("선행 예측 스텝 (5분 단위)", 6, 72, 12)
-    ewma_k = st.slider("잔차 관리한계 σ 배수", 1.5, 5.0, 3.0, 0.5)
+    with st.expander("⚙️ 고급 — 예측 파라미터"):
+        st.caption("기본값 권장.")
+        forecast_steps = st.slider("선행 예측 스텝 (5분 단위)", 6, 72, 12)
+        ewma_k = st.slider("잔차 관리한계 σ 배수", 1.5, 5.0, 3.0, 0.5)
 
 plot_df = df.tail(window_h * 12).copy()
 series = plot_df.set_index("ts")[target_col].dropna()
@@ -65,6 +67,36 @@ res_df = residual_anomalies(series, ewma_span=12, k=ewma_k)
 future_forecast = forecast_next_n(series, n=forecast_steps)
 
 col_label = {"current_load": "현재수요(MW)", "reserve_rate": "공급예비율(%)"}[target_col]
+
+# ── 한눈에 보기 (쉬운 말 요약) ───────────────────────────────────────
+n_anom = int(res_df["anomaly"].sum())
+total = len(res_df)
+metrics = None
+if len(series) >= 60:
+    _, metrics = evaluate_forecast(series, test_ratio=0.2)
+
+_unit = "MW" if target_col == "current_load" else "%"
+_msg_perf = (
+    f"예측이 실제와 평균 **{metrics['MAE']:.0f}{_unit}** 어긋남"
+    f"(실제의 약 {metrics['MAPE(%)']:.1f}%, hold-out 20%·데이터 누수 제거)."
+    if metrics else
+    f"예측 성능평가(MAE)는 60행 이상부터 활성(현재 {len(series)}행)."
+)
+
+st.subheader("🔎 한눈에 보기")
+if n_anom == 0:
+    st.success(
+        f"최근 **{window_h}시간 {col_label}** — 잔차 기반 이상 **0건**(평소 주기 패턴 내). {_msg_perf}"
+    )
+else:
+    st.warning(
+        f"최근 **{window_h}시간 {col_label}** — 잔차 기반 이상 "
+        f"**{n_anom}건**({n_anom/total*100:.1f}%) 감지. {_msg_perf}"
+    )
+st.caption(
+    "주기성(요일·시간대)을 기준선으로 제거한 '잔차'에 관리한계를 적용 — "
+    "주기성을 무시하는 단순 임계값의 거짓경보를 줄입니다."
+)
 
 # ── 예측 vs 실제 차트 ─────────────────────────────────────────────────
 st.subheader("실측 vs 계절 기준선 예측")
@@ -132,20 +164,18 @@ st.plotly_chart(fig2, width="stretch")
 
 # ── 예측 성능 지표 ────────────────────────────────────────────────────
 st.subheader("예측 성능 (Hold-out 20%)")
-if len(series) >= 60:
-    result_df, metrics = evaluate_forecast(series, test_ratio=0.2)
+if metrics is not None:
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("MAE", f"{metrics['MAE']:.2f}")
     m2.metric("RMSE", f"{metrics['RMSE']:.2f}")
     m3.metric("MAPE", f"{metrics['MAPE(%)']:.2f}%")
     m4.metric("테스트 건수", f"{metrics['n_test']}행")
+    st.caption("기준선을 train 구간만으로 적합해 test에 적용(데이터 누수 제거된 정직한 수치).")
 else:
     st.info(f"현재 {len(series)}행 — 60행 이상 수집 후 예측 성능 평가가 활성화됩니다.")
 
 # ── 이상 요약 ─────────────────────────────────────────────────────────
 st.subheader("잔차 기반 이상 요약")
-n_anom = int(res_df["anomaly"].sum())
-total = len(res_df)
 st.write(f"분석 기간 **{total}** 포인트 중 **{n_anom}** 건 이상 감지 ({n_anom/total*100:.1f}%)")
 
 if n_anom > 0:
