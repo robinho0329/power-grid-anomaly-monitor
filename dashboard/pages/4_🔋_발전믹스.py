@@ -12,9 +12,10 @@ import streamlit as st  # noqa: E402
 
 from src.storage import database  # noqa: E402
 
-from dashboard._lib import load_supply, render_footer, render_sidebar  # noqa: E402
+from dashboard._lib import inject_css, load_supply, render_footer, render_sidebar  # noqa: E402
 
 st.set_page_config(page_title="발전믹스", page_icon="🔋", layout="wide")
+inject_css()
 st.title("🔋 발전믹스 — 무엇으로 전기를 만들고 있나")
 st.markdown(
     "**무엇을 보는 화면인가** — 지금 전력이 원자력·LNG·석탄·신재생 등 "

@@ -19,9 +19,10 @@ from plotly.subplots import make_subplots  # noqa: E402
 from src.analysis import ewma_cusum, isolation_forest  # noqa: E402
 from src.storage import database  # noqa: E402
 
-from dashboard._lib import render_footer, render_sidebar  # noqa: E402
+from dashboard._lib import inject_css, render_footer, render_sidebar  # noqa: E402
 
 st.set_page_config(page_title="탐지 비교", page_icon="📈", layout="wide")
+inject_css()
 st.title("📈 단순 임계값 vs 다층 탐지 비교")
 st.caption(
     "단순 ±3σ 임계값과 다층 탐지(L1 통계·L2 ML)를 같은 시계열에 적용해 반응을 비교합니다. "

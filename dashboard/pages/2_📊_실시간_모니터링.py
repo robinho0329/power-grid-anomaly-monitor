@@ -12,9 +12,10 @@ import streamlit as st  # noqa: E402
 from src import config  # noqa: E402
 from src.storage import database  # noqa: E402
 
-from dashboard._lib import render_footer, render_sidebar  # noqa: E402
+from dashboard._lib import inject_css, render_footer, render_sidebar  # noqa: E402
 
 st.set_page_config(page_title="실시간 모니터링", page_icon="📊", layout="wide")
+inject_css()
 st.title("📊 실시간 모니터링 — 지금 계통은 안전한가")
 st.caption(
     "현재 수요·공급능력·예비율을 추적합니다. 예비율은 제조의 '안전재고 여유율'과 같아 "

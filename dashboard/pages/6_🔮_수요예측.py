@@ -17,9 +17,10 @@ from src.analysis.demand_forecast import (  # noqa: E402
 )
 from src.storage import database  # noqa: E402
 
-from dashboard._lib import render_footer, render_sidebar  # noqa: E402
+from dashboard._lib import inject_css, render_footer, render_sidebar  # noqa: E402
 
 st.set_page_config(page_title="수요 예측", page_icon="🔮", layout="wide")
+inject_css()
 st.title("🔮 수요 예측 + 잔차 기반 이상탐지")
 st.caption(
     "전력수요의 일주기·주간주기 패턴을 기준선으로 제거한 뒤 "

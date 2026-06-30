@@ -14,9 +14,10 @@ from plotly.subplots import make_subplots  # noqa: E402
 from src.analysis import ewma_cusum, isolation_forest  # noqa: E402
 from src.storage import database  # noqa: E402
 
-from dashboard._lib import render_footer, render_sidebar  # noqa: E402
+from dashboard._lib import inject_css, render_footer, render_sidebar  # noqa: E402
 
 st.set_page_config(page_title="이상탐지 타임라인", page_icon="🚨", layout="wide")
+inject_css()
 st.title("🚨 이상탐지 타임라인")
 st.caption("3계층 이상탐지(통계·ML·딥러닝) 결과를 동일 시계열에 중첩해 비교합니다.")
 

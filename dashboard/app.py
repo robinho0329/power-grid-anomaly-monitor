@@ -18,10 +18,14 @@ import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
 from dashboard._lib import (  # noqa: E402
+    dash_header,
+    inject_css,
+    kpi_tile,
     load_supply,
     render_alert_banner,
     render_footer,
     render_sidebar,
+    reserve_gauge,
 )
 
 st.set_page_config(
@@ -29,17 +33,18 @@ st.set_page_config(
     page_icon="⚡",
     layout="wide",
 )
+inject_css()
 
 df = load_supply()
 render_sidebar(df)
 
 # ──────────────────────────────────────────────────────────────────────
-# 헤더 — 한 줄 가치 제안
+# 헤더 밴드 — 한 줄 가치 제안
 # ──────────────────────────────────────────────────────────────────────
-st.title("⚡ 실시간 전력수급 이상탐지 모니터링")
-st.markdown(
-    "한국 전력계통(KPX)을 **제조 생산라인에 빗대어**, "
-    "통계·머신러닝·딥러닝 **3계층**으로 평소와 다른 신호를 조기에 잡아내는 모니터링 시스템입니다."
+dash_header(
+    "⚡ 실시간 전력수급 이상탐지 모니터링",
+    "한국 전력계통(KPX)을 제조 생산라인에 빗대어, 통계·머신러닝·딥러닝 3계층으로 "
+    "평소와 다른 신호를 조기에 잡아내는 모니터링 시스템",
 )
 
 # ──────────────────────────────────────────────────────────────────────
@@ -86,33 +91,43 @@ else:
     latest = df.iloc[-1]
     prev = df.iloc[-2] if len(df) > 1 else latest
     rate = float(latest["reserve_rate"])
+    load_delta = latest["current_load"] - prev["current_load"]
+    rate_delta = rate - float(prev["reserve_rate"])
 
     # 경보 등급 판정·배너 (공용 _lib — app/페이지 단일 진실원천)
     render_alert_banner(rate)
 
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric(
-        "현재 수요 (부하)",
-        f"{latest['current_load']:,.0f} MW",
-        delta=f"{latest['current_load'] - prev['current_load']:+,.0f} MW",
-        help="생산라인의 '현재 처리량'에 해당 — 지금 계통이 감당 중인 전력량",
-    )
-    k2.metric(
-        "공급능력",
-        f"{latest['supply_capacity']:,.0f} MW",
-        help="라인의 '최대 캐파'에 해당 — 동원 가능한 총 공급량",
-    )
-    k3.metric(
-        "공급예비율",
-        f"{rate:.1f} %",
-        delta=f"{rate - float(prev['reserve_rate']):+.1f} %",
-        help="'안전재고 여유율'에 해당 — 낮을수록 위험(경보 기준)",
-    )
-    k4.metric(
-        "운영예비율",
-        f"{float(latest['oper_reserve_rate']):.1f} %",
-        help="즉시 투입 가능한 실질 여유 — 운영 관점의 안전 마진",
-    )
+    # 게이지(예비율) + BAN 타일 — Tableau식 상단 요약
+    g_col, t_col = st.columns([1, 2], gap="medium")
+    with g_col:
+        st.plotly_chart(reserve_gauge(rate), width="stretch")
+        st.caption("공급예비율 = 제조의 '안전재고 여유율' — 낮을수록 위험")
+    with t_col:
+        r1 = st.columns(2)
+        with r1[0]:
+            kpi_tile(
+                "현재 수요 (부하)", f"{latest['current_load']:,.0f}", unit="MW",
+                delta=f"{load_delta:+,.0f} MW",
+                delta_good=None,
+                accent="#2E86DE", sub="생산라인 처리량 = 지금 계통이 감당 중인 전력",
+            )
+        with r1[1]:
+            kpi_tile(
+                "공급능력", f"{latest['supply_capacity']:,.0f}", unit="MW",
+                accent="#16A085", sub="라인 최대 캐파 = 동원 가능한 총 공급량",
+            )
+        r2 = st.columns(2)
+        with r2[0]:
+            kpi_tile(
+                "공급예비율", f"{rate:.1f}", unit="%",
+                delta=f"{rate_delta:+.1f} %p", delta_good=(rate_delta >= 0),
+                accent="#F39C12", sub="안전재고 여유율 — 경보 판정 기준",
+            )
+        with r2[1]:
+            kpi_tile(
+                "운영예비율", f"{float(latest['oper_reserve_rate']):.1f}", unit="%",
+                accent="#8E44AD", sub="즉시 투입 가능한 실질 여유 마진",
+            )
     st.caption(
         f"기준 시각: {pd.to_datetime(latest['ts']):%Y-%m-%d %H:%M} · "
         "자세한 추이는 좌측 **📊 실시간 모니터링** 페이지"

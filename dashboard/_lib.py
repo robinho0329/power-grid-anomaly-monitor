@@ -15,6 +15,7 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 import pandas as pd  # noqa: E402
+import plotly.graph_objects as go  # noqa: E402
 import streamlit as st  # noqa: E402
 
 from src import config  # noqa: E402
@@ -180,3 +181,152 @@ def render_footer() -> None:
         f"[코드]({GITHUB_URL}) · "
         "제조 AI/예지보전 직무 포트폴리오 (다층 이상탐지 L1·L2·L3 + 잔차)"
     )
+
+
+# ======================================================================
+# BI/Tableau 스타일 — 커스텀 CSS · KPI BAN 타일 · 게이지 · 차트 테마
+# (Tableau Public 에너지 대시보드 관례: BAN 타일, 게이지, 정돈된 차트, 강한 액센트)
+# ======================================================================
+# 데이터 잉크 위주의 차트 팔레트 (범주형 — 발전원/지표)
+CHART_COLORS = [
+    "#2E86DE", "#F39C12", "#27AE60", "#8E44AD",
+    "#E74C3C", "#16A085", "#D35400", "#2C3E50",
+]
+INK = "#1c2733"       # 본문 텍스트
+MUTED = "#7b8a9a"     # 보조 텍스트
+GRID = "rgba(120,140,160,0.18)"  # 옅은 그리드
+
+
+def inject_css() -> None:
+    """기본 Streamlit 크롬을 숨기고 BI 대시보드 톤을 입히는 전역 CSS.
+
+    각 페이지 상단에서 1회 호출. (set_page_config 직후 권장)
+    """
+    st.markdown(
+        """
+        <style>
+        /* 기본 크롬 제거 — '앱' 느낌 */
+        #MainMenu, footer, header [data-testid="stToolbar"] {visibility: hidden;}
+        [data-testid="stDecoration"] {display:none;}
+        /* 상단 여백 축소 (대시보드 밀도↑) */
+        .block-container {padding-top: 1.6rem; padding-bottom: 2rem; max-width: 1400px;}
+        /* 헤더 밴드 */
+        .dash-header {
+            background: linear-gradient(110deg, #142233 0%, #1f3b54 60%, #2a5168 100%);
+            color: #fff; padding: 18px 24px; border-radius: 12px; margin-bottom: 18px;
+            box-shadow: 0 4px 18px rgba(20,34,51,0.18);
+        }
+        .dash-header h1 {color:#fff; font-size: 1.5rem; margin:0; font-weight:800;}
+        .dash-header p {color: #cfe0ee; margin: 6px 0 0; font-size: 0.9rem;}
+        /* KPI BAN 타일 */
+        .kpi-card {
+            background:#fff; border-radius:12px; padding:16px 18px;
+            border:1px solid #e6ebf0; border-top:4px solid var(--accent,#F39C12);
+            box-shadow:0 2px 10px rgba(28,39,51,0.06); height:100%;
+        }
+        .kpi-label {font-size:0.82rem; color:#7b8a9a; font-weight:600; margin:0;}
+        .kpi-value {font-size:1.9rem; font-weight:800; color:#1c2733; line-height:1.15; margin:2px 0 0;}
+        .kpi-unit  {font-size:0.95rem; font-weight:600; color:#7b8a9a;}
+        .kpi-delta {font-size:0.82rem; font-weight:700; margin-top:4px;}
+        .kpi-sub   {font-size:0.72rem; color:#9aa7b4; margin-top:6px;}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def dash_header(title: str, subtitle: str = "") -> None:
+    """Tableau식 헤더 밴드 (그라데이션 배너)."""
+    sub = f"<p>{subtitle}</p>" if subtitle else ""
+    st.markdown(
+        f'<div class="dash-header"><h1>{title}</h1>{sub}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def kpi_tile(
+    label: str,
+    value: str,
+    *,
+    unit: str = "",
+    delta: str | None = None,
+    delta_good: bool | None = None,
+    accent: str = "#F39C12",
+    sub: str = "",
+) -> None:
+    """BAN(Big Aggregate Number) 타일 — 큰 숫자 + 라벨 + 증감 + 보조설명.
+
+    delta_good: True=초록, False=빨강, None=회색.
+    """
+    if delta is None:
+        delta_html = ""
+    else:
+        color = {True: "#27AE60", False: "#E74C3C", None: "#7b8a9a"}[delta_good]
+        delta_html = f'<div class="kpi-delta" style="color:{color}">{delta}</div>'
+    unit_html = f'<span class="kpi-unit"> {unit}</span>' if unit else ""
+    sub_html = f'<div class="kpi-sub">{sub}</div>' if sub else ""
+    st.markdown(
+        f"""
+        <div class="kpi-card" style="--accent:{accent}">
+            <p class="kpi-label">{label}</p>
+            <div class="kpi-value">{value}{unit_html}</div>
+            {delta_html}{sub_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def style_fig(fig: go.Figure, *, height: int | None = None) -> go.Figure:
+    """plotly figure에 BI 공통 테마 적용 (투명 배경·정돈된 그리드·일관 폰트)."""
+    fig.update_layout(
+        template="plotly_white",
+        font=dict(family="sans-serif", size=12, color=INK),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=8, r=8, t=30, b=8),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
+        colorway=CHART_COLORS,
+    )
+    fig.update_xaxes(showgrid=True, gridcolor=GRID, zeroline=False)
+    fig.update_yaxes(showgrid=True, gridcolor=GRID, zeroline=False)
+    if height:
+        fig.update_layout(height=height)
+    return fig
+
+
+def reserve_gauge(rate: float, *, height: int = 260) -> go.Figure:
+    """공급예비율 게이지 (관제실 스타일). 임계 구간을 색 띠로 표시."""
+    th = config.RESERVE_RATE_THRESHOLDS
+    a = reserve_alert(rate)
+    axis_max = max(25.0, rate * 1.2)
+    fig = go.Figure(
+        go.Indicator(
+            mode="gauge+number",
+            value=rate,
+            number={"suffix": " %", "font": {"size": 30, "color": INK}},
+            gauge={
+                "axis": {"range": [0, axis_max], "tickwidth": 1, "tickcolor": MUTED},
+                "bar": {"color": a["color"], "thickness": 0.28},
+                "borderwidth": 0,
+                "steps": [
+                    {"range": [0, th["심각"]], "color": "rgba(231,76,60,0.25)"},
+                    {"range": [th["심각"], th["경계"]], "color": "rgba(211,84,0,0.20)"},
+                    {"range": [th["경계"], th["주의"]], "color": "rgba(243,201,13,0.22)"},
+                    {"range": [th["주의"], axis_max], "color": "rgba(39,174,96,0.18)"},
+                ],
+                "threshold": {
+                    "line": {"color": a["color"], "width": 4},
+                    "thickness": 0.85,
+                    "value": rate,
+                },
+            },
+        )
+    )
+    fig.update_layout(
+        height=height,
+        margin=dict(l=16, r=16, t=10, b=8),
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="sans-serif", color=INK),
+    )
+    return fig
