@@ -12,9 +12,16 @@ import streamlit as st  # noqa: E402
 
 from src.storage import database  # noqa: E402
 
+from dashboard._lib import inject_css, load_supply, render_footer, render_sidebar  # noqa: E402
+
 st.set_page_config(page_title="발전믹스", page_icon="🔋", layout="wide")
-st.title("🔋 발전믹스 (발전원별 발전량)")
-st.caption("원자력·LNG·석탄·신재생·수력 등 발전원별 비중을 제조 설비 가동 포트폴리오처럼 시각화합니다.")
+inject_css()
+st.title("🔋 발전믹스 — 무엇으로 전기를 만들고 있나")
+st.markdown(
+    "**무엇을 보는 화면인가** — 지금 전력이 원자력·LNG·석탄·신재생 등 "
+    "*어떤 발전원의 조합*으로 공급되는지입니다."
+)
+st.caption("제조의 '설비 가동 포트폴리오'에 해당 — 발전원별 비중과 그 변화를 추적합니다.")
 
 SOURCE_COLORS = {
     "원자력": "#4e79a7",
@@ -33,6 +40,7 @@ def load_gen():
 
 
 gen = load_gen()
+render_sidebar(load_supply())
 
 if gen.empty:
     st.info("발전믹스 데이터가 없습니다. `python -m scripts.collect_once` 로 수집을 시작하세요.")
@@ -66,7 +74,7 @@ with col_pie:
     fig_pie.update_layout(
         showlegend=False, height=350, margin=dict(l=10, r=10, t=10, b=10)
     )
-    st.plotly_chart(fig_pie, use_container_width=True)
+    st.plotly_chart(fig_pie, width="stretch")
     st.caption(f"총 발전량: {total:,.0f} MW")
 
 with col_bar:
@@ -85,7 +93,7 @@ with col_bar:
         xaxis_title="MW", height=350,
         margin=dict(l=0, r=60, t=10, b=0),
     )
-    st.plotly_chart(fig_bar, use_container_width=True)
+    st.plotly_chart(fig_bar, width="stretch")
 
 st.divider()
 
@@ -115,7 +123,7 @@ fig_area.update_layout(
     legend=dict(orientation="h", yanchor="bottom", y=1.02),
     height=380, margin=dict(l=0, r=0, t=10, b=0),
 )
-st.plotly_chart(fig_area, use_container_width=True)
+st.plotly_chart(fig_area, width="stretch")
 
 # ── 발전원별 비중 추이 (100% 스택) ────────────────────────────────────
 st.subheader("발전원별 비중 추이 (%)")
@@ -137,4 +145,6 @@ fig_pct.update_layout(
     legend=dict(orientation="h", yanchor="bottom", y=1.02),
     height=300, margin=dict(l=0, r=0, t=10, b=0),
 )
-st.plotly_chart(fig_pct, use_container_width=True)
+st.plotly_chart(fig_pct, width="stretch")
+
+render_footer()

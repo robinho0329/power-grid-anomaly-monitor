@@ -1,0 +1,15 @@
+# Streamlit 테마 — 전력/에너지 도메인 (충북 대기질 프로젝트 패턴 차용, 색만 전력용 앰버로 차별화)
+[theme]
+base = "light"
+primaryColor = "#F39C12"          # 에너지/전력 앰버 (대기질 프로젝트의 블루와 구분)
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f4f6f8"
+textColor = "#1c2733"
+font = "sans serif"
+
+[browser]
+gatherUsageStats = false
+
+[server]
+headless = true
+runOnSave = false

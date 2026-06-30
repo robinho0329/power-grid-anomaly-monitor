@@ -17,14 +17,19 @@ import streamlit as st  # noqa: E402
 from src.geo.plants import SOURCE_COLORS, load_plants  # noqa: E402
 from src.storage import database  # noqa: E402
 
+from dashboard._lib import inject_css, load_supply, render_footer, render_sidebar  # noqa: E402
+
 st.set_page_config(page_title="발전소 지도", page_icon="🗺️", layout="wide")
+inject_css()
 st.title("🗺️ 발전소 분포 + 실시간 발전믹스")
+st.markdown("**무엇을 보는 화면인가** — 전력이 *어디서, 무엇으로* 만들어지는지의 공간 맥락입니다.")
 st.caption(
     "점 = 발전소 위치(시드·근사 좌표), 크기 = 설비용량, 색 = 발전원. "
-    "지도는 맥락용이며 이상탐지는 전국 시계열에서 수행됩니다."
+    "지도는 맥락용이며, 이상탐지는 이 위치가 아니라 전국 단위 시계열에서 수행됩니다(공간 이상탐지 아님)."
 )
 
 plants = load_plants()
+render_sidebar(load_supply())
 
 col_map, col_mix = st.columns([3, 1])
 
@@ -44,7 +49,7 @@ with col_map:
         height=620,
     )
     fig.update_layout(map_style="open-street-map", margin=dict(l=0, r=0, t=0, b=0))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 with col_mix:
     st.subheader("실시간 발전믹스")
@@ -60,3 +65,5 @@ with col_mix:
         snap = gen[gen["ts"] == latest_ts].set_index("source")["generation_mw"]
         st.caption(f"· 기준 {latest_ts:%m-%d %H:%M}")
         st.bar_chart(snap.sort_values(ascending=False))
+
+render_footer()

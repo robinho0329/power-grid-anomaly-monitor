@@ -14,7 +14,10 @@ from plotly.subplots import make_subplots  # noqa: E402
 from src.analysis import ewma_cusum, isolation_forest  # noqa: E402
 from src.storage import database  # noqa: E402
 
+from dashboard._lib import inject_css, render_footer, render_sidebar  # noqa: E402
+
 st.set_page_config(page_title="이상탐지 타임라인", page_icon="🚨", layout="wide")
+inject_css()
 st.title("🚨 이상탐지 타임라인")
 st.caption("3계층 이상탐지(통계·ML·딥러닝) 결과를 동일 시계열에 중첩해 비교합니다.")
 
@@ -25,14 +28,17 @@ def load():
 
 
 df = load()
+render_sidebar(df)
 
 if df.empty:
     st.info("수집된 데이터가 없습니다. `python -m scripts.collect_once` 로 수집을 시작하세요.")
     st.stop()
 
-# ── 사이드바 파라미터 ─────────────────────────────────────────────────
+# ── 사이드바 ──────────────────────────────────────────────────────────
+# 기본 컨트롤(대상·기간)은 바로 노출, 민감도 파라미터는 '고급'으로 숨겨
+# 일반 청자가 압도되지 않게 한다.
 with st.sidebar:
-    st.header("탐지 파라미터")
+    st.header("보기 설정")
     target_col = st.selectbox(
         "분석 대상 지표",
         ["reserve_rate", "current_load", "oper_reserve_rate"],
@@ -42,11 +48,21 @@ with st.sidebar:
             "oper_reserve_rate": "운영예비율(%)",
         }[x],
     )
-    ewma_span = st.slider("EWMA 윈도우 (5분 단위)", 6, 48, 12)
-    ewma_k = st.slider("EWMA 관리한계 σ 배수", 1.5, 5.0, 3.0, 0.5)
-    cusum_thresh = st.slider("CUSUM 임계", 1.0, 20.0, 5.0, 0.5)
-    if2_contamination = st.slider("IF 이상 비율", 0.01, 0.10, 0.02, 0.01)
     window_h = st.slider("표시 범위 (시간)", 6, 72, 24)
+
+    with st.expander("⚙️ 고급 — 탐지 민감도"):
+        st.caption("값이 작을수록 더 민감하게(더 많이) 이상을 잡습니다. 기본값 권장.")
+        ewma_span = st.slider("EWMA 윈도우 (5분 단위)", 6, 48, 12)
+        ewma_k = st.slider("EWMA 관리한계 σ 배수", 1.5, 5.0, 3.0, 0.5)
+        cusum_thresh = st.slider("CUSUM 임계", 1.0, 20.0, 5.0, 0.5)
+        if2_auto = st.checkbox(
+            "IF 이상 비율 자동(auto)", value=True,
+            help="끄면 비율을 직접 고정합니다. 고정 시 정상 데이터에도 그 비율만큼 강제로 이상이 표시됩니다.",
+        )
+        if2_contamination = (
+            "auto" if if2_auto
+            else st.slider("IF 이상 비율(고정)", 0.01, 0.10, 0.02, 0.01)
+        )
 
 plot_df = df.tail(window_h * 12).copy()  # 5분×12 = 1시간
 
@@ -70,6 +86,39 @@ if l3_available:
         l3_available = len(seqs) > 0
     except Exception:
         l3_available = False
+
+# ── 한눈에 보는 인사이트 (쉬운 말 요약) ──────────────────────────────
+_n = len(series)
+_ewma_cnt = int(ewma_df["anomaly"].sum())
+_cusum_cnt = int(cusum_s.sum())
+_l2_cnt = int((l2_df["anomaly"] == True).sum())
+_label_short = {
+    "reserve_rate": "공급예비율",
+    "current_load": "현재수요",
+    "oper_reserve_rate": "운영예비율",
+}[target_col]
+_total_hits = _ewma_cnt + _cusum_cnt + _l2_cnt
+
+st.subheader("🔎 한눈에 보기")
+if _total_hits == 0:
+    st.success(
+        f"최근 **{window_h}시간** 동안 **{_label_short}**에서 세 탐지기 모두 이상 신호가 없었습니다. "
+        "계통이 평소 패턴대로 안정적으로 움직였다는 뜻입니다."
+    )
+else:
+    _parts = []
+    if _ewma_cnt:
+        _parts.append(f"급변·이탈(EWMA) **{_ewma_cnt}건**")
+    if _cusum_cnt:
+        _parts.append(f"추세 변화(CUSUM) **{_cusum_cnt}건**")
+    if _l2_cnt:
+        _parts.append(f"다변량 조합 이상(IF) **{_l2_cnt}건**")
+    st.warning(
+        f"최근 **{window_h}시간**({_n:,}개 시점) **{_label_short}**에서 "
+        + ", ".join(_parts)
+        + " 감지. 아래 타임라인에서 빨강/주황 마커 구간을 확인하세요."
+    )
+st.caption("L1 통계 → L2 ML → (데이터 충분 시) L3 딥러닝이 서로 다른 종류의 이상을 교차 검증합니다.")
 
 # ── 시각화 ───────────────────────────────────────────────────────────
 col_names = {
@@ -121,7 +170,7 @@ if not l2_anom.empty:
 
 fig.update_layout(height=650, legend=dict(orientation="h", y=-0.05),
                    margin=dict(l=0, r=0, t=30, b=0))
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width="stretch")
 
 # ── 요약 테이블 ───────────────────────────────────────────────────────
 st.subheader("이상 감지 건수 요약")
@@ -138,7 +187,20 @@ summary = {
         f"{(l2_df['anomaly'] == True).mean()*100:.1f}%",
     ],
 }
-st.dataframe(pd.DataFrame(summary), use_container_width=True, hide_index=True)
+st.dataframe(pd.DataFrame(summary), width="stretch", hide_index=True)
 
-if not l3_available:
-    st.info("💡 L3 LSTM-AutoEncoder는 정상 데이터 60행(5시간) 이상 누적 후 활성화됩니다.")
+# ── L3 딥러닝 상태 (진행바) ──────────────────────────────────────────
+st.subheader("🧠 L3 딥러닝(LSTM-AE) 준비도")
+st.progress(min(len(df) / L3_MIN_ROWS, 1.0))
+if len(df) >= L3_MIN_ROWS:
+    st.caption(
+        f"현재 {len(df):,}/{L3_MIN_ROWS}행 — 활성 가능. "
+        "재구성 오차 기반 '패턴 붕괴형' 이상까지 탐지합니다."
+    )
+else:
+    st.caption(
+        f"현재 {len(df):,}/{L3_MIN_ROWS}행 — 설계 완비, 데이터 충족 시 자동 활성. "
+        "소량 데이터로 억지 추론하지 않습니다(과적합 노이즈 방지)."
+    )
+
+render_footer()

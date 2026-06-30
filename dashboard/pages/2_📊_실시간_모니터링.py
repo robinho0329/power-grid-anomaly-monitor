@@ -12,9 +12,15 @@ import streamlit as st  # noqa: E402
 from src import config  # noqa: E402
 from src.storage import database  # noqa: E402
 
+from dashboard._lib import inject_css, render_footer, render_sidebar  # noqa: E402
+
 st.set_page_config(page_title="실시간 모니터링", page_icon="📊", layout="wide")
-st.title("📊 실시간 전력수급 모니터링")
-st.caption("현재 부하·공급능력·예비율을 제조 생산라인 KPI처럼 실시간 추적합니다.")
+inject_css()
+st.title("📊 실시간 모니터링 — 지금 계통은 안전한가")
+st.caption(
+    "현재 수요·공급능력·예비율을 추적합니다. 예비율은 제조의 '안전재고 여유율'과 같아 "
+    "낮을수록 위험 — 한눈에 경보 등급으로 보여줍니다."
+)
 
 
 @st.cache_data(ttl=300)
@@ -23,6 +29,7 @@ def load():
 
 
 df = load()
+render_sidebar(df)
 
 if df.empty:
     st.info("수집된 데이터가 없습니다. `python -m scripts.collect_once` 로 수집을 시작하세요.")
@@ -30,6 +37,19 @@ if df.empty:
 
 latest = df.iloc[-1]
 prev = df.iloc[-2] if len(df) > 1 else latest
+
+# ── 상단 경보 한 줄 요약 ──────────────────────────────────────────────
+_rate = float(latest["reserve_rate"])
+_th = config.RESERVE_RATE_THRESHOLDS
+if _rate < _th["심각"]:
+    st.error(f"🔴 **심각** — 공급예비율 {_rate:.1f}%. 즉시 수급 대책이 필요한 수준입니다.")
+elif _rate < _th["경계"]:
+    st.warning(f"🟠 **경계** — 공급예비율 {_rate:.1f}%. 예비 자원 점검이 필요합니다.")
+elif _rate < _th["주의"]:
+    st.warning(f"🟡 **주의** — 공급예비율 {_rate:.1f}%. 평소보다 여유가 낮습니다.")
+else:
+    st.success(f"🟢 **정상** — 공급예비율 {_rate:.1f}%. 공급 여유가 충분합니다.")
+st.caption(f"기준 시각: {latest['ts']}")
 
 # ── 상단 KPI 카드 ─────────────────────────────────────────────────────
 st.subheader("현재 상태")
@@ -95,9 +115,9 @@ def make_gauge(value: float, title: str) -> go.Figure:
     return fig
 
 with g1:
-    st.plotly_chart(make_gauge(latest["reserve_rate"], "공급예비율"), use_container_width=True)
+    st.plotly_chart(make_gauge(latest["reserve_rate"], "공급예비율"), width="stretch")
 with g2:
-    st.plotly_chart(make_gauge(latest["oper_reserve_rate"], "운영예비율"), use_container_width=True)
+    st.plotly_chart(make_gauge(latest["oper_reserve_rate"], "운영예비율"), width="stretch")
 
 # ── 부하 곡선 ────────────────────────────────────────────────────────
 st.subheader("부하 곡선 (당일)")
@@ -121,7 +141,7 @@ fig_load.update_layout(
     legend=dict(orientation="h", yanchor="bottom", y=1.02),
     height=350, margin=dict(l=0, r=0, t=10, b=0),
 )
-st.plotly_chart(fig_load, use_container_width=True)
+st.plotly_chart(fig_load, width="stretch")
 
 # ── 예비율 추이 ──────────────────────────────────────────────────────
 st.subheader("예비율 추이")
@@ -149,7 +169,7 @@ fig_res.update_layout(
     legend=dict(orientation="h", yanchor="bottom", y=1.02),
     height=300, margin=dict(l=0, r=0, t=10, b=0),
 )
-st.plotly_chart(fig_res, use_container_width=True)
+st.plotly_chart(fig_res, width="stretch")
 
 # ── 경보 상태 ────────────────────────────────────────────────────────
 st.subheader("경보 상태")
@@ -165,3 +185,5 @@ else:
     st.success(f"🟢 **정상** — 공급예비율 {rate:.1f}% (여유 충분)")
 
 st.caption(f"마지막 수집: {latest['ts']}")
+
+render_footer()
