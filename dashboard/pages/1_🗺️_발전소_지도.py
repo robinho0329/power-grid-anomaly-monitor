@@ -17,6 +17,8 @@ import streamlit as st  # noqa: E402
 from src.geo.plants import SOURCE_COLORS, load_plants  # noqa: E402
 from src.storage import database  # noqa: E402
 
+from dashboard._lib import load_supply, render_footer, render_sidebar  # noqa: E402
+
 st.set_page_config(page_title="발전소 지도", page_icon="🗺️", layout="wide")
 st.title("🗺️ 발전소 분포 + 실시간 발전믹스")
 st.markdown("**무엇을 보는 화면인가** — 전력이 *어디서, 무엇으로* 만들어지는지의 공간 맥락입니다.")
@@ -26,6 +28,7 @@ st.caption(
 )
 
 plants = load_plants()
+render_sidebar(load_supply())
 
 col_map, col_mix = st.columns([3, 1])
 
@@ -61,3 +64,5 @@ with col_mix:
         snap = gen[gen["ts"] == latest_ts].set_index("source")["generation_mw"]
         st.caption(f"· 기준 {latest_ts:%m-%d %H:%M}")
         st.bar_chart(snap.sort_values(ascending=False))
+
+render_footer()

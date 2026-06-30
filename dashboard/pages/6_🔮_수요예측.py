@@ -17,6 +17,8 @@ from src.analysis.demand_forecast import (  # noqa: E402
 )
 from src.storage import database  # noqa: E402
 
+from dashboard._lib import render_footer, render_sidebar  # noqa: E402
+
 st.set_page_config(page_title="수요 예측", page_icon="🔮", layout="wide")
 st.title("🔮 수요 예측 + 잔차 기반 이상탐지")
 st.caption(
@@ -31,6 +33,7 @@ def load():
 
 
 df = load()
+render_sidebar(df)
 
 if df.empty:
     st.info("수집된 데이터가 없습니다. `python -m scripts.collect_once` 로 수집을 시작하세요.")
@@ -187,3 +190,5 @@ if n_anom > 0:
         }).style.format("{:.2f}"),
         width="stretch",
     )
+
+render_footer()

@@ -17,8 +17,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
-from src import config  # noqa: E402
-from src.storage import database  # noqa: E402
+from dashboard._lib import (  # noqa: E402
+    load_supply,
+    render_alert_banner,
+    render_footer,
+    render_sidebar,
+)
 
 st.set_page_config(
     page_title="전력수급 이상탐지 모니터",
@@ -26,13 +30,8 @@ st.set_page_config(
     layout="wide",
 )
 
-
-@st.cache_data(ttl=300)
-def load() -> pd.DataFrame:
-    return database.load_df()
-
-
-df = load()
+df = load_supply()
+render_sidebar(df)
 
 # ──────────────────────────────────────────────────────────────────────
 # 헤더 — 한 줄 가치 제안
@@ -87,23 +86,9 @@ else:
     latest = df.iloc[-1]
     prev = df.iloc[-2] if len(df) > 1 else latest
     rate = float(latest["reserve_rate"])
-    th = config.RESERVE_RATE_THRESHOLDS
 
-    # 경보 등급 판정 (예비율이 낮을수록 위험)
-    if rate < th["심각"]:
-        level, icon, banner = "심각", "🔴", st.error
-        msg = "공급 여유가 매우 부족합니다. 즉시 수급 대책이 필요한 수준입니다."
-    elif rate < th["경계"]:
-        level, icon, banner = "경계", "🟠", st.warning
-        msg = "공급 여유가 빠르게 줄고 있습니다. 예비 자원 점검이 필요합니다."
-    elif rate < th["주의"]:
-        level, icon, banner = "주의", "🟡", st.warning
-        msg = "여유가 평소보다 낮습니다. 추이를 주의 깊게 지켜볼 구간입니다."
-    else:
-        level, icon, banner = "정상", "🟢", st.success
-        msg = "공급 여유가 충분합니다. 계통은 안정적으로 운영되고 있습니다."
-
-    banner(f"{icon} **{level}** — 공급예비율 {rate:.1f}%. {msg}")
+    # 경보 등급 판정·배너 (공용 _lib — app/페이지 단일 진실원천)
+    render_alert_banner(rate)
 
     k1, k2, k3, k4 = st.columns(4)
     k1.metric(
@@ -225,3 +210,5 @@ st.caption(
     "데이터: 한국전력거래소(KPX) OpenAPI · 5분 단위 수급/발전믹스. "
     "이상탐지는 전국 단위 시계열에서 수행됩니다(공간 이상탐지 아님)."
 )
+
+render_footer()

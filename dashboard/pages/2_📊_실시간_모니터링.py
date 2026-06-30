@@ -12,6 +12,8 @@ import streamlit as st  # noqa: E402
 from src import config  # noqa: E402
 from src.storage import database  # noqa: E402
 
+from dashboard._lib import render_footer, render_sidebar  # noqa: E402
+
 st.set_page_config(page_title="실시간 모니터링", page_icon="📊", layout="wide")
 st.title("📊 실시간 모니터링 — 지금 계통은 안전한가")
 st.caption(
@@ -26,6 +28,7 @@ def load():
 
 
 df = load()
+render_sidebar(df)
 
 if df.empty:
     st.info("수집된 데이터가 없습니다. `python -m scripts.collect_once` 로 수집을 시작하세요.")
@@ -181,3 +184,5 @@ else:
     st.success(f"🟢 **정상** — 공급예비율 {rate:.1f}% (여유 충분)")
 
 st.caption(f"마지막 수집: {latest['ts']}")
+
+render_footer()

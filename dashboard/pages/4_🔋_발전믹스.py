@@ -12,6 +12,8 @@ import streamlit as st  # noqa: E402
 
 from src.storage import database  # noqa: E402
 
+from dashboard._lib import load_supply, render_footer, render_sidebar  # noqa: E402
+
 st.set_page_config(page_title="발전믹스", page_icon="🔋", layout="wide")
 st.title("🔋 발전믹스 — 무엇으로 전기를 만들고 있나")
 st.markdown(
@@ -37,6 +39,7 @@ def load_gen():
 
 
 gen = load_gen()
+render_sidebar(load_supply())
 
 if gen.empty:
     st.info("발전믹스 데이터가 없습니다. `python -m scripts.collect_once` 로 수집을 시작하세요.")
@@ -142,3 +145,5 @@ fig_pct.update_layout(
     height=300, margin=dict(l=0, r=0, t=10, b=0),
 )
 st.plotly_chart(fig_pct, width="stretch")
+
+render_footer()

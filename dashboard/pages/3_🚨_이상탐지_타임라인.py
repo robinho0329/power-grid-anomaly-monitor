@@ -14,6 +14,8 @@ from plotly.subplots import make_subplots  # noqa: E402
 from src.analysis import ewma_cusum, isolation_forest  # noqa: E402
 from src.storage import database  # noqa: E402
 
+from dashboard._lib import render_footer, render_sidebar  # noqa: E402
+
 st.set_page_config(page_title="이상탐지 타임라인", page_icon="🚨", layout="wide")
 st.title("🚨 이상탐지 타임라인")
 st.caption("3계층 이상탐지(통계·ML·딥러닝) 결과를 동일 시계열에 중첩해 비교합니다.")
@@ -25,6 +27,7 @@ def load():
 
 
 df = load()
+render_sidebar(df)
 
 if df.empty:
     st.info("수집된 데이터가 없습니다. `python -m scripts.collect_once` 로 수집을 시작하세요.")
@@ -198,3 +201,5 @@ else:
         f"현재 {len(df):,}/{L3_MIN_ROWS}행 — 설계 완비, 데이터 충족 시 자동 활성. "
         "소량 데이터로 억지 추론하지 않습니다(과적합 노이즈 방지)."
     )
+
+render_footer()
