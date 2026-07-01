@@ -92,20 +92,33 @@ def fetch_sukub(api_key: str | None = None, timeout: int = 10) -> list[dict]:
 
 
 def fetch_generation(api_key: str | None = None, timeout: int = 10) -> list[dict]:
-    """발전믹스 API 호출 → long 레코드. (네트워크 필요)"""
-    return parse_generation(_get(config.KPX_GEN_URL, api_key, timeout))
+    """발전믹스 API 호출 → long 레코드. (네트워크 필요)
+
+    data.go.kr 프록시(B552115/PwrAmountByGen)는 baseDate(YYYYMMDD)가 필수이고
+    페이지네이션이 있다 → 당일(로컬 KST) 기준으로 하루치(≤288행)를 한 번에 요청.
+    """
+    today = datetime.now().strftime("%Y%m%d")
+    params = {"baseDate": today, "pageNo": 1, "numOfRows": 500, "dataType": "XML"}
+    return parse_generation(_get(config.KPX_GEN_URL, api_key, timeout, extra_params=params))
 
 
-def _get(url: str, api_key: str | None, timeout: int, retries: int = 3) -> str:
+def _get(
+    url: str,
+    api_key: str | None,
+    timeout: int,
+    retries: int = 3,
+    extra_params: dict | None = None,
+) -> str:
     """KPX 호출. 간헐적 5xx에 대비해 재시도하고, 에러에 serviceKey가 노출되지 않게 마스킹."""
     api_key = api_key or config.KPX_API_KEY
     if not api_key:
         raise RuntimeError("KPX_API_KEY 미설정 — .env를 확인하세요.")
 
+    params = {"serviceKey": api_key, **(extra_params or {})}
     last_err: Exception | None = None
     for attempt in range(1, retries + 1):
         try:
-            resp = requests.get(url, params={"serviceKey": api_key}, timeout=timeout)
+            resp = requests.get(url, params=params, timeout=timeout)
             if resp.status_code >= 500:  # KPX 간헐적 500 → 재시도
                 last_err = RuntimeError(f"KPX {resp.status_code} (일시적)")
                 logger.warning("KPX %d, 재시도 %d/%d", resp.status_code, attempt, retries)

@@ -13,7 +13,9 @@ load_dotenv(BASE_DIR / ".env")
 # KPX OpenAPI (공공데이터포털)
 KPX_API_KEY = os.getenv("KPX_API_KEY", "")
 KPX_SUKUB_URL = "https://openapi.kpx.or.kr/openapi/sukub5mToday/getSukub5mToday"
-KPX_GEN_URL = "https://openapi.kpx.or.kr/openapi/sumperfuel5m/getSumperfuel5m"
+# 발전믹스(발전원별 발전량, 계통기준) — data.go.kr 프록시(B552115). baseDate=YYYYMMDD 필수.
+# 주의: openapi.kpx.or.kr의 sumperfuel5m는 별도 승인 필요(SERVICE ACCESS DENIED)라 프록시로 대체.
+KPX_GEN_URL = "https://apis.data.go.kr/B552115/PwrAmountByGen/getPwrAmountByGen"
 
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY", "")
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
