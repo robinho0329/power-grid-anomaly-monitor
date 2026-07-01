@@ -19,14 +19,19 @@ from plotly.subplots import make_subplots  # noqa: E402
 from src.analysis import ewma_cusum, isolation_forest  # noqa: E402
 from src.storage import database  # noqa: E402
 
-from dashboard._lib import inject_css, render_footer, render_sidebar  # noqa: E402
+from dashboard._lib import (  # noqa: E402
+    dash_header,
+    inject_css,
+    render_footer,
+    render_sidebar,
+    style_fig,
+)
 
 st.set_page_config(page_title="탐지 비교", page_icon="📈", layout="wide")
 inject_css()
-st.title("📈 단순 임계값 vs 다층 탐지 비교")
-st.caption(
-    "단순 ±3σ 임계값과 다층 탐지(L1 통계·L2 ML)를 같은 시계열에 적용해 반응을 비교합니다. "
-    "정직한 정량 비교는 정답을 아는 **합성 시나리오**에서 수행합니다(실측은 라벨이 없어 탐색용)."
+dash_header(
+    "📈 단순 임계값 vs 다층 탐지 비교",
+    "단순 ±3σ와 다층 탐지(L1 통계·L2 ML)를 같은 시계열에 적용 · 정량 비교는 정답을 아는 합성 시나리오로",
 )
 
 
@@ -191,9 +196,8 @@ fig.add_trace(go.Bar(x=l2_series.index, y=l2_series.astype(int),
                                                for v in l2_series.values],
                       showlegend=False), row=4, col=1)
 
-fig.update_layout(height=700, margin=dict(l=0, r=0, t=30, b=0),
-                   legend=dict(orientation="h", y=-0.04))
-st.plotly_chart(fig, width="stretch")
+fig.update_layout(legend=dict(orientation="h", y=-0.04))
+st.plotly_chart(style_fig(fig, height=700), width="stretch")
 
 # ── 탐지기 성능 비교 표 ───────────────────────────────────────────────
 _table_title = (

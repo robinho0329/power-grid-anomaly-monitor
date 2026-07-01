@@ -17,14 +17,19 @@ from src.analysis.demand_forecast import (  # noqa: E402
 )
 from src.storage import database  # noqa: E402
 
-from dashboard._lib import inject_css, render_footer, render_sidebar  # noqa: E402
+from dashboard._lib import (  # noqa: E402
+    dash_header,
+    inject_css,
+    render_footer,
+    render_sidebar,
+    style_fig,
+)
 
 st.set_page_config(page_title="수요 예측", page_icon="🔮", layout="wide")
 inject_css()
-st.title("🔮 수요 예측 + 잔차 기반 이상탐지")
-st.caption(
-    "전력수요의 일주기·주간주기 패턴을 기준선으로 제거한 뒤 "
-    "잔차에 이상탐지를 적용합니다 — 주기성을 무시하는 단순 임계값의 거짓경보를 줄이도록 설계했습니다."
+dash_header(
+    "🔮 수요 예측 + 잔차 기반 이상탐지",
+    "일주기·주간주기 패턴을 기준선으로 제거한 뒤 잔차에 이상탐지 · 단순 임계값의 주기성 거짓경보를 줄이도록 설계",
 )
 
 
@@ -127,12 +132,8 @@ if not anom.empty:
         mode="markers", name="이상",
         marker=dict(color="red", size=9, symbol="x"),
     ))
-fig1.update_layout(
-    xaxis_title="시각", yaxis_title=col_label,
-    legend=dict(orientation="h", yanchor="bottom", y=1.02),
-    height=360, margin=dict(l=0, r=0, t=10, b=0),
-)
-st.plotly_chart(fig1, width="stretch")
+fig1.update_layout(xaxis_title="시각", yaxis_title=col_label)
+st.plotly_chart(style_fig(fig1, height=360), width="stretch")
 
 # ── 잔차 차트 ─────────────────────────────────────────────────────────
 st.subheader("잔차 (실측 − 기준선) + 관리한계")
@@ -159,12 +160,38 @@ if not anom.empty:
         showlegend=False,
     ))
 fig2.add_hline(y=0, line_dash="dot", line_color="gray", line_width=1)
-fig2.update_layout(
-    xaxis_title="시각", yaxis_title=f"잔차 ({col_label})",
-    legend=dict(orientation="h", yanchor="bottom", y=1.02),
-    height=280, margin=dict(l=0, r=0, t=10, b=0),
-)
-st.plotly_chart(fig2, width="stretch")
+fig2.update_layout(xaxis_title="시각", yaxis_title=f"잔차 ({col_label})")
+st.plotly_chart(style_fig(fig2, height=280), width="stretch")
+
+# ── 부하 패턴 히트맵 (시간대 × 요일) ─────────────────────────────────
+if target_col == "current_load":
+    st.subheader("🗓️ 부하 패턴 — 시간대 × 요일 히트맵")
+    st.caption(
+        "언제 전력을 가장 많이 쓰는지(피크)를 한눈에 — 색이 진할수록 평균 수요가 높습니다. "
+        "이 주기 패턴이 위 '계절 기준선'의 근거입니다."
+    )
+    _hm = df[["ts", "current_load"]].dropna().copy()
+    _hm["hour"] = _hm["ts"].dt.hour
+    _dow = _hm["ts"].dt.dayofweek  # 0=월
+    _dow_ko = ["월", "화", "수", "목", "금", "토", "일"]
+    _hm["요일"] = _dow.map(dict(enumerate(_dow_ko)))
+    pivot_hm = (
+        _hm.pivot_table(index="요일", columns="hour", values="current_load", aggfunc="mean")
+        .reindex(_dow_ko)
+    )
+    if pivot_hm.notna().sum().sum() >= 4:
+        fig_hm = go.Figure(go.Heatmap(
+            z=pivot_hm.values,
+            x=[f"{h:02d}시" for h in pivot_hm.columns],
+            y=pivot_hm.index,
+            colorscale="YlOrRd",
+            colorbar=dict(title="MW"),
+            hovertemplate="%{y} %{x}<br>평균수요 %{z:,.0f} MW<extra></extra>",
+        ))
+        fig_hm.update_layout(xaxis_title="시간대", yaxis_title="요일")
+        st.plotly_chart(style_fig(fig_hm, height=300), width="stretch")
+    else:
+        st.info("히트맵은 요일·시간대가 어느 정도 채워지면 표시됩니다(현재 데이터 누적 중).")
 
 # ── 예측 성능 지표 ────────────────────────────────────────────────────
 st.subheader("예측 성능 (Hold-out 20%)")

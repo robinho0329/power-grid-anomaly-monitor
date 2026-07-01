@@ -12,14 +12,21 @@ import streamlit as st  # noqa: E402
 from src import config  # noqa: E402
 from src.storage import database  # noqa: E402
 
-from dashboard._lib import inject_css, render_footer, render_sidebar  # noqa: E402
+from dashboard._lib import (  # noqa: E402
+    dash_header,
+    inject_css,
+    render_alert_banner,
+    render_footer,
+    render_sidebar,
+    reserve_gauge,
+    style_fig,
+)
 
 st.set_page_config(page_title="실시간 모니터링", page_icon="📊", layout="wide")
 inject_css()
-st.title("📊 실시간 모니터링 — 지금 계통은 안전한가")
-st.caption(
-    "현재 수요·공급능력·예비율을 추적합니다. 예비율은 제조의 '안전재고 여유율'과 같아 "
-    "낮을수록 위험 — 한눈에 경보 등급으로 보여줍니다."
+dash_header(
+    "📊 실시간 모니터링 — 지금 계통은 안전한가",
+    "현재 수요·공급능력·예비율 추적 · 예비율은 제조의 '안전재고 여유율'과 같아 낮을수록 위험",
 )
 
 
@@ -38,86 +45,49 @@ if df.empty:
 latest = df.iloc[-1]
 prev = df.iloc[-2] if len(df) > 1 else latest
 
-# ── 상단 경보 한 줄 요약 ──────────────────────────────────────────────
-_rate = float(latest["reserve_rate"])
-_th = config.RESERVE_RATE_THRESHOLDS
-if _rate < _th["심각"]:
-    st.error(f"🔴 **심각** — 공급예비율 {_rate:.1f}%. 즉시 수급 대책이 필요한 수준입니다.")
-elif _rate < _th["경계"]:
-    st.warning(f"🟠 **경계** — 공급예비율 {_rate:.1f}%. 예비 자원 점검이 필요합니다.")
-elif _rate < _th["주의"]:
-    st.warning(f"🟡 **주의** — 공급예비율 {_rate:.1f}%. 평소보다 여유가 낮습니다.")
-else:
-    st.success(f"🟢 **정상** — 공급예비율 {_rate:.1f}%. 공급 여유가 충분합니다.")
+# ── 상단 경보 한 줄 요약 (공통 배너) ─────────────────────────────────
+render_alert_banner(float(latest["reserve_rate"]))
 st.caption(f"기준 시각: {latest['ts']}")
 
-# ── 상단 KPI 카드 ─────────────────────────────────────────────────────
-st.subheader("현재 상태")
-c1, c2, c3, c4 = st.columns(4)
-c1.metric(
-    "현재 수요 (부하)",
-    f"{latest['current_load']:,.0f} MW",
-    delta=f"{latest['current_load'] - prev['current_load']:+.0f} MW",
-)
-c2.metric(
-    "공급능력",
-    f"{latest['supply_capacity']:,.0f} MW",
-    delta=f"{latest['supply_capacity'] - prev['supply_capacity']:+.0f} MW",
-)
-c3.metric(
-    "공급예비율",
-    f"{latest['reserve_rate']:.1f} %",
-    delta=f"{latest['reserve_rate'] - prev['reserve_rate']:+.1f} %",
-)
-c4.metric(
-    "운영예비율",
-    f"{latest['oper_reserve_rate']:.1f} %",
-    delta=f"{latest['oper_reserve_rate'] - prev['oper_reserve_rate']:+.1f} %",
-)
+# ── 상단 KPI BAN 타일 + 게이지 ────────────────────────────────────────
+g_col, t_col = st.columns([1, 1.4])
+
+with g_col:
+    st.caption("공급예비율 게이지 (제조 안전재고 여유율)")
+    st.plotly_chart(reserve_gauge(float(latest["reserve_rate"])), width="stretch")
+
+with t_col:
+    r1 = st.columns(2)
+    with r1[0]:
+        kpi_tile(
+            "현재 수요 (부하)", f"{latest['current_load']:,.0f}", unit="MW",
+            delta=f"{latest['current_load'] - prev['current_load']:+,.0f} MW",
+            delta_good=None, accent="#2E86DE",
+        )
+    with r1[1]:
+        kpi_tile(
+            "공급능력", f"{latest['supply_capacity']:,.0f}", unit="MW",
+            delta=f"{latest['supply_capacity'] - prev['supply_capacity']:+,.0f} MW",
+            delta_good=None, accent="#27AE60",
+        )
+    st.write("")
+    r2 = st.columns(2)
+    _d_res = latest["reserve_rate"] - prev["reserve_rate"]
+    _d_ope = latest["oper_reserve_rate"] - prev["oper_reserve_rate"]
+    with r2[0]:
+        kpi_tile(
+            "공급예비율", f"{latest['reserve_rate']:.1f}", unit="%",
+            delta=f"{_d_res:+.1f} %p", delta_good=bool(_d_res >= 0),
+            accent="#F39C12",
+        )
+    with r2[1]:
+        kpi_tile(
+            "운영예비율", f"{latest['oper_reserve_rate']:.1f}", unit="%",
+            delta=f"{_d_ope:+.1f} %p", delta_good=bool(_d_ope >= 0),
+            accent="#8E44AD",
+        )
 
 st.divider()
-
-# ── 예비율 게이지 ────────────────────────────────────────────────────
-st.subheader("공급예비율 게이지 (제조 안전재고 유사)")
-g1, g2 = st.columns(2)
-
-def make_gauge(value: float, title: str) -> go.Figure:
-    thresholds = config.RESERVE_RATE_THRESHOLDS
-    color = (
-        "red" if value < thresholds["심각"]
-        else "orange" if value < thresholds["경계"]
-        else "gold" if value < thresholds["주의"]
-        else "green"
-    )
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number+delta",
-        value=value,
-        title={"text": title, "font": {"size": 14}},
-        number={"suffix": "%", "font": {"size": 28}},
-        delta={"reference": thresholds["주의"], "suffix": "%"},
-        gauge={
-            "axis": {"range": [0, 50], "ticksuffix": "%"},
-            "bar": {"color": color},
-            "steps": [
-                {"range": [0, thresholds["심각"]], "color": "#ffcccc"},
-                {"range": [thresholds["심각"], thresholds["경계"]], "color": "#ffe5cc"},
-                {"range": [thresholds["경계"], thresholds["주의"]], "color": "#fff5cc"},
-                {"range": [thresholds["주의"], 50], "color": "#e8f5e9"},
-            ],
-            "threshold": {
-                "line": {"color": "red", "width": 3},
-                "thickness": 0.75,
-                "value": thresholds["심각"],
-            },
-        },
-    ))
-    fig.update_layout(height=260, margin=dict(l=20, r=20, t=40, b=10))
-    return fig
-
-with g1:
-    st.plotly_chart(make_gauge(latest["reserve_rate"], "공급예비율"), width="stretch")
-with g2:
-    st.plotly_chart(make_gauge(latest["oper_reserve_rate"], "운영예비율"), width="stretch")
 
 # ── 부하 곡선 ────────────────────────────────────────────────────────
 st.subheader("부하 곡선 (당일)")
@@ -136,12 +106,8 @@ fig_load.add_trace(go.Scatter(
     x=plot_df.index, y=plot_df["supply_capacity"],
     name="공급능력", line=dict(color="#2ca02c", width=1.5, dash="dot"),
 ))
-fig_load.update_layout(
-    xaxis_title="시각", yaxis_title="MW",
-    legend=dict(orientation="h", yanchor="bottom", y=1.02),
-    height=350, margin=dict(l=0, r=0, t=10, b=0),
-)
-st.plotly_chart(fig_load, width="stretch")
+fig_load.update_layout(xaxis_title="시각", yaxis_title="MW")
+st.plotly_chart(style_fig(fig_load, height=350), width="stretch")
 
 # ── 예비율 추이 ──────────────────────────────────────────────────────
 st.subheader("예비율 추이")
@@ -164,25 +130,8 @@ for level, val in config.RESERVE_RATE_THRESHOLDS.items():
             annotation_text=f"{level} {val}%",
             annotation_position="bottom right",
         )
-fig_res.update_layout(
-    xaxis_title="시각", yaxis_title="%",
-    legend=dict(orientation="h", yanchor="bottom", y=1.02),
-    height=300, margin=dict(l=0, r=0, t=10, b=0),
-)
-st.plotly_chart(fig_res, width="stretch")
-
-# ── 경보 상태 ────────────────────────────────────────────────────────
-st.subheader("경보 상태")
-rate = latest["reserve_rate"]
-thresholds = config.RESERVE_RATE_THRESHOLDS
-if rate < thresholds["심각"]:
-    st.error(f"🔴 **심각** — 공급예비율 {rate:.1f}% (기준: {thresholds['심각']}% 미만)")
-elif rate < thresholds["경계"]:
-    st.warning(f"🟠 **경계** — 공급예비율 {rate:.1f}% (기준: {thresholds['경계']}% 미만)")
-elif rate < thresholds["주의"]:
-    st.warning(f"🟡 **주의** — 공급예비율 {rate:.1f}% (기준: {thresholds['주의']}% 미만)")
-else:
-    st.success(f"🟢 **정상** — 공급예비율 {rate:.1f}% (여유 충분)")
+fig_res.update_layout(xaxis_title="시각", yaxis_title="%")
+st.plotly_chart(style_fig(fig_res, height=300), width="stretch")
 
 st.caption(f"마지막 수집: {latest['ts']}")
 

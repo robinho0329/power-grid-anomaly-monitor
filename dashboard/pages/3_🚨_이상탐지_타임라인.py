@@ -14,12 +14,20 @@ from plotly.subplots import make_subplots  # noqa: E402
 from src.analysis import ewma_cusum, isolation_forest  # noqa: E402
 from src.storage import database  # noqa: E402
 
-from dashboard._lib import inject_css, render_footer, render_sidebar  # noqa: E402
+from dashboard._lib import (  # noqa: E402
+    dash_header,
+    inject_css,
+    render_footer,
+    render_sidebar,
+    style_fig,
+)
 
 st.set_page_config(page_title="이상탐지 타임라인", page_icon="🚨", layout="wide")
 inject_css()
-st.title("🚨 이상탐지 타임라인")
-st.caption("3계층 이상탐지(통계·ML·딥러닝) 결과를 동일 시계열에 중첩해 비교합니다.")
+dash_header(
+    "🚨 이상탐지 타임라인",
+    "3계층 이상탐지(L1 통계·L2 ML·L3 딥러닝) 결과를 동일 시계열에 중첩해 교차 검증",
+)
 
 
 @st.cache_data(ttl=300)
@@ -168,9 +176,8 @@ if not l2_anom.empty:
                               mode="markers", name="IF 이상",
                               marker=dict(color="orange", size=9, symbol="circle-open")), row=3, col=1)
 
-fig.update_layout(height=650, legend=dict(orientation="h", y=-0.05),
-                   margin=dict(l=0, r=0, t=30, b=0))
-st.plotly_chart(fig, width="stretch")
+fig.update_layout(legend=dict(orientation="h", y=-0.05))
+st.plotly_chart(style_fig(fig, height=650), width="stretch")
 
 # ── 요약 테이블 ───────────────────────────────────────────────────────
 st.subheader("이상 감지 건수 요약")

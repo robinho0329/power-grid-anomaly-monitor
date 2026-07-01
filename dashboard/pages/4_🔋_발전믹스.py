@@ -12,16 +12,21 @@ import streamlit as st  # noqa: E402
 
 from src.storage import database  # noqa: E402
 
-from dashboard._lib import inject_css, load_supply, render_footer, render_sidebar  # noqa: E402
+from dashboard._lib import (  # noqa: E402
+    dash_header,
+    inject_css,
+    load_supply,
+    render_footer,
+    render_sidebar,
+    style_fig,
+)
 
 st.set_page_config(page_title="발전믹스", page_icon="🔋", layout="wide")
 inject_css()
-st.title("🔋 발전믹스 — 무엇으로 전기를 만들고 있나")
-st.markdown(
-    "**무엇을 보는 화면인가** — 지금 전력이 원자력·LNG·석탄·신재생 등 "
-    "*어떤 발전원의 조합*으로 공급되는지입니다."
+dash_header(
+    "🔋 발전믹스 — 무엇으로 전기를 만들고 있나",
+    "원자력·LNG·석탄·신재생 등 어떤 발전원 조합으로 공급되는지 · 제조의 '설비 가동 포트폴리오'",
 )
-st.caption("제조의 '설비 가동 포트폴리오'에 해당 — 발전원별 비중과 그 변화를 추적합니다.")
 
 SOURCE_COLORS = {
     "원자력": "#4e79a7",
@@ -43,7 +48,13 @@ gen = load_gen()
 render_sidebar(load_supply())
 
 if gen.empty:
-    st.info("발전믹스 데이터가 없습니다. `python -m scripts.collect_once` 로 수집을 시작하세요.")
+    st.warning(
+        "🔌 **발전믹스 데이터 대기 중** — 수집기는 정상 동작하나, 연료원별 발전량 API"
+        "(`sumperfuel5m`)가 아직 `SERVICE ACCESS DENIED` 상태입니다.\n\n"
+        "data.go.kr에서 **'한국전력거래소_계통 연료원별 발전량'**([15142651](https://www.data.go.kr/data/15142651)) "
+        "활용신청이 승인되면, 코드 수정 없이 다음 수집 회차부터 자동으로 채워집니다. "
+        "(수급 데이터는 정상 수집 중)"
+    )
     st.stop()
 
 # ── 사이드바 ─────────────────────────────────────────────────────────
@@ -71,10 +82,8 @@ with col_pie:
         hole=0.4,
     )
     fig_pie.update_traces(textinfo="percent+label", textposition="outside")
-    fig_pie.update_layout(
-        showlegend=False, height=350, margin=dict(l=10, r=10, t=10, b=10)
-    )
-    st.plotly_chart(fig_pie, width="stretch")
+    fig_pie.update_layout(showlegend=False)
+    st.plotly_chart(style_fig(fig_pie, height=350), width="stretch")
     st.caption(f"총 발전량: {total:,.0f} MW")
 
 with col_bar:
@@ -89,11 +98,8 @@ with col_bar:
         text=[f"{v:,.0f} MW" for v in snap_sorted.values],
         textposition="outside",
     ))
-    fig_bar.update_layout(
-        xaxis_title="MW", height=350,
-        margin=dict(l=0, r=60, t=10, b=0),
-    )
-    st.plotly_chart(fig_bar, width="stretch")
+    fig_bar.update_layout(xaxis_title="MW")
+    st.plotly_chart(style_fig(fig_bar, height=350), width="stretch")
 
 st.divider()
 
@@ -118,12 +124,8 @@ for src in pivot.columns:
         mode="lines",
     ))
 
-fig_area.update_layout(
-    xaxis_title="시각", yaxis_title="MW",
-    legend=dict(orientation="h", yanchor="bottom", y=1.02),
-    height=380, margin=dict(l=0, r=0, t=10, b=0),
-)
-st.plotly_chart(fig_area, width="stretch")
+fig_area.update_layout(xaxis_title="시각", yaxis_title="MW")
+st.plotly_chart(style_fig(fig_area, height=380), width="stretch")
 
 # ── 발전원별 비중 추이 (100% 스택) ────────────────────────────────────
 st.subheader("발전원별 비중 추이 (%)")
@@ -140,11 +142,7 @@ for src in pct.columns:
         fillcolor=SOURCE_COLORS.get(src, "#cccccc"),
         line=dict(width=0),
     ))
-fig_pct.update_layout(
-    xaxis_title="시각", yaxis_title="%",
-    legend=dict(orientation="h", yanchor="bottom", y=1.02),
-    height=300, margin=dict(l=0, r=0, t=10, b=0),
-)
-st.plotly_chart(fig_pct, width="stretch")
+fig_pct.update_layout(xaxis_title="시각", yaxis_title="%")
+st.plotly_chart(style_fig(fig_pct, height=300), width="stretch")
 
 render_footer()
