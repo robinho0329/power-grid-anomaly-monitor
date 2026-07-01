@@ -15,6 +15,7 @@ from src.storage import database  # noqa: E402
 from dashboard._lib import (  # noqa: E402
     dash_header,
     inject_css,
+    kpi_tile,
     load_supply,
     render_footer,
     render_sidebar,
@@ -48,12 +49,10 @@ gen = load_gen()
 render_sidebar(load_supply())
 
 if gen.empty:
-    st.warning(
-        "🔌 **발전믹스 데이터 대기 중** — 수집기는 정상 동작하나, 연료원별 발전량 API"
-        "(`sumperfuel5m`)가 아직 `SERVICE ACCESS DENIED` 상태입니다.\n\n"
-        "data.go.kr에서 **'한국전력거래소_계통 연료원별 발전량'**([15142651](https://www.data.go.kr/data/15142651)) "
-        "활용신청이 승인되면, 코드 수정 없이 다음 수집 회차부터 자동으로 채워집니다. "
-        "(수급 데이터는 정상 수집 중)"
+    st.info(
+        "🔌 발전믹스 데이터가 아직 수집되지 않았습니다. "
+        "로컬 수집(`python -m scripts.collect_once`) 후 표시됩니다 "
+        "— data.go.kr 프록시(발전원별 발전량 계통기준)에서 당일 5분 단위로 누적됩니다."
     )
     st.stop()
 
@@ -66,10 +65,33 @@ latest_ts = gen["ts"].max()
 cutoff = gen["ts"].max() - __import__("pandas").Timedelta(hours=window_h)
 plot_gen = gen[gen["ts"] >= cutoff]
 
-# ── 최신 스냅샷 파이차트 ──────────────────────────────────────────────
+# ── 최신 스냅샷 ───────────────────────────────────────────────────────
 snap = gen[gen["ts"] == latest_ts].set_index("source")["generation_mw"]
 total = snap.sum()
 
+# ── 상단 KPI BAN 타일 (한눈 요약) ────────────────────────────────────
+top_src = snap.idxmax()
+top_pct = snap.max() / total * 100 if total else 0
+nuke_pct = snap.get("원자력", 0) / total * 100 if total else 0
+renew_pct = snap.get("신재생", 0) / total * 100 if total else 0
+
+k = st.columns(4)
+with k[0]:
+    kpi_tile("총 발전량", f"{total:,.0f}", unit="MW",
+             accent="#2E86DE", sub=f"기준 {latest_ts:%m-%d %H:%M}")
+with k[1]:
+    kpi_tile("최대 발전원", top_src, unit=f"· {top_pct:.0f}%",
+             accent=SOURCE_COLORS.get(top_src, "#F39C12"), sub="현재 비중 1위")
+with k[2]:
+    kpi_tile("기저부하(원자력)", f"{nuke_pct:.0f}", unit="%",
+             accent=SOURCE_COLORS["원자력"], sub="상시 가동 기반전원")
+with k[3]:
+    kpi_tile("신재생 비중", f"{renew_pct:.0f}", unit="%",
+             accent=SOURCE_COLORS["신재생"], sub="태양광·풍력 등")
+
+st.divider()
+
+# ── 최신 스냅샷 파이차트 ──────────────────────────────────────────────
 col_pie, col_bar = st.columns([1, 2])
 
 with col_pie:
