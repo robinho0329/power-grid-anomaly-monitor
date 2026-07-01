@@ -15,6 +15,7 @@ from src.storage import database  # noqa: E402
 from dashboard._lib import (  # noqa: E402
     dash_header,
     inject_css,
+    kpi_tile,
     render_alert_banner,
     render_footer,
     render_sidebar,
