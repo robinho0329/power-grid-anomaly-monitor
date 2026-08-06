@@ -106,10 +106,14 @@ def _get(
     url: str,
     api_key: str | None,
     timeout: int,
-    retries: int = 3,
+    retries: int = 8,
     extra_params: dict | None = None,
 ) -> str:
-    """KPX 호출. 간헐적 5xx에 대비해 재시도하고, 에러에 serviceKey가 노출되지 않게 마스킹."""
+    """KPX 호출. 간헐적 5xx에 대비해 재시도하고, 에러에 serviceKey가 노출되지 않게 마스킹.
+
+    수급 엔드포인트는 실측 500 발생률이 ~75%라 3회로는 회차당 42%가 실패한다.
+    8회면 ~10%로 떨어지고, 백오프를 5초로 상한해 작업 스케줄러 5분 제한 안에 든다.
+    """
     api_key = api_key or config.KPX_API_KEY
     if not api_key:
         raise RuntimeError("KPX_API_KEY 미설정 — .env를 확인하세요.")
@@ -122,7 +126,7 @@ def _get(
             if resp.status_code >= 500:  # KPX 간헐적 500 → 재시도
                 last_err = RuntimeError(f"KPX {resp.status_code} (일시적)")
                 logger.warning("KPX %d, 재시도 %d/%d", resp.status_code, attempt, retries)
-                time.sleep(1.5 * attempt)
+                time.sleep(min(1.5 * attempt, 5))
                 continue
             resp.raise_for_status()
             # data.go.kr 표준 에러(SERVICE ACCESS DENIED 등)는 HTTP 200으로 옴 → 본문 확인
@@ -132,7 +136,7 @@ def _get(
             return resp.text
         except requests.RequestException as e:
             last_err = RuntimeError(str(e).replace(api_key, "<KEY>"))
-            time.sleep(1.5 * attempt)
+            time.sleep(min(1.5 * attempt, 5))
     raise RuntimeError(f"KPX 호출 실패({retries}회): {last_err}")
 
 
