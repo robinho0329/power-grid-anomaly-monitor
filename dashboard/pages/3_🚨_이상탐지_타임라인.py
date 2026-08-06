@@ -17,6 +17,7 @@ from src.storage import database  # noqa: E402
 from dashboard._lib import (  # noqa: E402
     dash_header,
     inject_css,
+    recent_window,
     render_footer,
     render_sidebar,
     style_fig,
@@ -72,7 +73,7 @@ with st.sidebar:
             else st.slider("IF 이상 비율(고정)", 0.01, 0.10, 0.02, 0.01)
         )
 
-plot_df = df.tail(window_h * 12).copy()  # 5분×12 = 1시간
+plot_df = recent_window(df, window_h).copy()
 
 # ── L1: EWMA + CUSUM ─────────────────────────────────────────────────
 series = plot_df.set_index("ts")[target_col].dropna()

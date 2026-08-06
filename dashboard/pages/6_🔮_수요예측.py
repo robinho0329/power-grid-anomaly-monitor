@@ -20,6 +20,7 @@ from src.storage import database  # noqa: E402
 from dashboard._lib import (  # noqa: E402
     dash_header,
     inject_css,
+    recent_window,
     render_footer,
     render_sidebar,
     style_fig,
@@ -62,7 +63,7 @@ with st.sidebar:
         forecast_steps = st.slider("선행 예측 스텝 (5분 단위)", 6, 72, 12)
         ewma_k = st.slider("잔차 관리한계 σ 배수", 1.5, 5.0, 3.0, 0.5)
 
-plot_df = df.tail(window_h * 12).copy()
+plot_df = recent_window(df, window_h).copy()
 series = plot_df.set_index("ts")[target_col].dropna()
 
 # ── 잔차 기반 이상탐지 ────────────────────────────────────────────────

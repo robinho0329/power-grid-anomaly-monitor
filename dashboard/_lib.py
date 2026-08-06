@@ -81,6 +81,19 @@ def load_supply() -> pd.DataFrame:
         return pd.DataFrame()
 
 
+def recent_window(df: pd.DataFrame, hours: int, ts_col: str = "ts") -> pd.DataFrame:
+    """최근 `hours`시간 구간을 시간 기준으로 잘라 반환.
+
+    df.tail(hours * 12)처럼 행 수로 자르면 수집 공백이 있을 때 범위가 어긋난다.
+    실제로 2026-07-07~08-06 수집이 멈춘 구간 때문에 "최근 48시간"이
+    31일 14시간을 덮었고, 그 상태로 계산한 예측 오차가 부풀려졌다.
+    """
+    if df.empty or ts_col not in df.columns:
+        return df
+    cutoff = df[ts_col].max() - pd.Timedelta(hours=hours)
+    return df[df[ts_col] >= cutoff]
+
+
 # ----------------------------------------------------------------------
 # 경보 등급 판정 — 예비율(%) 기준 (app/페이지 공통 단일 진실원천)
 # ----------------------------------------------------------------------

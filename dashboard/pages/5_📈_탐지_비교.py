@@ -22,6 +22,7 @@ from src.storage import database  # noqa: E402
 from dashboard._lib import (  # noqa: E402
     dash_header,
     inject_css,
+    recent_window,
     render_footer,
     render_sidebar,
     style_fig,
@@ -83,7 +84,7 @@ if is_demo:
         "아래 수치는 **합성 시나리오 기준**이며 실제 운영 탐지 성과가 아닙니다."
     )
 
-plot_df = df.tail(window_h * 12).copy().reset_index(drop=True)
+plot_df = recent_window(df, window_h).copy().reset_index(drop=True)
 series = plot_df.set_index("ts")[target_col].dropna().copy()
 
 # ── 합성 이벤트 주입 + 정답(truth) 마스크 구성 ───────────────────────
