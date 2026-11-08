@@ -1,9 +1,9 @@
-# 📅 데일리 리포트 — 2026-11-07 (KST)
+# 📅 데일리 리포트 — 2026-11-08 (KST)
 
-> 자동 생성: 2026-11-07 14:57 KST · GitHub Actions `daily_loop.yml`
+> 자동 생성: 2026-11-08 14:59 KST · GitHub Actions `daily_loop.yml`
 
 ## ✅ 회귀 테스트
-- 🟢 `27 passed, 27 warnings in 2.09s`
+- 🟢 `27 passed, 27 warnings in 2.86s`
 
 ## 📦 누적 데이터
 - 총 누적: **15,670 건** (3038.7시간 분량)
